@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Corte de Mármol - Optimización</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Optimización de Corte de Mármol</h1>
+    <p>Empaquetado de piezas en planchas variables con hoja de sierra</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <h2>Piezas a cortar</h2>
+      <div id="pieceRows"></div>
+      <button id="addPiece" class="btn secondary">+ Agregar pieza</button>
+
+      <h2>Planchas disponibles</h2>
+      <div id="slabRows"></div>
+      <button id="addSlab" class="btn secondary">+ Agregar plancha</button>
+
+      <h2>Parámetros</h2>
+      <label class="row">
+        <span>Ancho de hoja de sierra (mm)</span>
+        <input type="number" id="kerf" value="4" min="0" step="0.5">
+      </label>
+      <label class="row">
+        <span>Permitir rotar piezas</span>
+        <input type="checkbox" id="allowRotation" checked>
+      </label>
+
+      <button id="optimizeBtn" class="btn primary">Optimizar corte</button>
+    </section>
+
+    <section class="panel results" id="results" hidden>
+      <h2>Resultado</h2>
+      <div id="summary"></div>
+      <div id="slabs"></div>
+      <div id="unplaced"></div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
