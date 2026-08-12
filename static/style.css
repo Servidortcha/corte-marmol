@@ -71,6 +71,12 @@ input, select {
 
 .item-line .dim { font-size: 10px; color: #888; text-align: center; }
 
+.item-line.shape .name { border-color: #1f6feb; background: #eef4ff; font-weight: 600; }
+
+.dxf-info { font-size: 12px; margin: 8px 0; padding: 8px; border-radius: 6px; background: #f0f6ff; border: 1px solid #cfe0ff; }
+.dxf-info.ok { background: #effdf0; border-color: #b7e4bd; color: #1d7a2e; }
+.dxf-info.error { background: #fdecea; border-color: #f5c6c0; color: #b02a1e; }
+
 .del { border: none; background: #fdecea; color: #c0392b; border-radius: 5px; cursor: pointer; font-size: 14px; }
 
 .btn {
