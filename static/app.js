@@ -3,30 +3,115 @@ const PALETTE = [
   "#ff6f91", "#00c2a8", "#9d6bd7", "#e2708a", "#4fbc9f", "#f6c244",
 ];
 
+const nameColorMap = {};
+let paletteIndex = 0;
+let layerColors = {};
+
+const ACI_COLORS = {
+  1: "#ff0000", 2: "#ffff00", 3: "#00ff00", 4: "#00ffff", 5: "#0000ff",
+  6: "#ff00ff", 7: "#000000", 8: "#808080", 9: "#c0c0c0", 10: "#ff0000",
+  30: "#ff8000", 40: "#ff8000", 50: "#ff0080", 60: "#0080ff", 90: "#00ff80",
+  130: "#8000ff", 210: "#ff0080", 250: "#202020", 251: "#404040",
+  252: "#606060", 253: "#808080", 254: "#a0a0a0", 255: "#ffffff",
+};
+
+function aciToHex(color) {
+  return ACI_COLORS[color] || "#5b9bd5";
+}
+
 function colorFor(name) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  return PALETTE[h % PALETTE.length];
+  if (!nameColorMap[name]) {
+    nameColorMap[name] = PALETTE[paletteIndex % PALETTE.length];
+    paletteIndex++;
+  }
+  return nameColorMap[name];
 }
 
 let lastResult = null;
+let currentJobId = null;
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>'"]/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  }[char]));
+}
+
+function renderEdgeDistances(pieces, savedDistances) {
+  const container = document.getElementById("edgeDistanceRows");
+  const hint = document.getElementById("edgeDistanceHint");
+  const layerSet = new Set();
+  (pieces || []).forEach((p) => (p.lines || []).forEach((s) => layerSet.add(s[0])));
+  const kerf = parseFloat(document.getElementById("kerf").value) || 0;
+  container.innerHTML = "";
+  if (!layerSet.size) {
+    hint.hidden = false;
+    return;
+  }
+  hint.hidden = true;
+  layerSet.forEach((layer) => {
+    const row = document.createElement("label");
+    row.className = "edge-row";
+    row.dataset.layer = layer;
+    const color = layerColors[layer] !== undefined
+      ? aciToHex(layerColors[layer])
+      : "#888888";
+    const value = savedDistances && savedDistances[layer] !== undefined
+      ? savedDistances[layer]
+      : kerf;
+    row.innerHTML = `<span><span class="color-dot" style="background:${color}"></span> ${escapeHtml(layer)}</span>
+      <input type="number" min="0" step="0.5" value="${value}">`;
+    container.appendChild(row);
+  });
+}
+
+function collectEdgeDistances() {
+  const out = {};
+  document.querySelectorAll("#edgeDistanceRows .edge-row").forEach((row) => {
+    const layer = row.dataset.layer;
+    const value = parseFloat(row.querySelector("input").value);
+    if (layer && value >= 0) out[layer] = value;
+  });
+  return out;
+}
 
 function itemLine(template, polygon, holes) {
   const line = document.createElement("div");
   line.className = "item-line";
   line.innerHTML = `
-    <input class="name" placeholder="Nombre" value="${template.name}">
+    <input class="name" placeholder="Nombre" value="${escapeHtml(template.name)}">
     <input class="w" type="number" placeholder="Ancho" value="${template.width}">
     <input class="h" type="number" placeholder="Alto" value="${template.height}">
     <input class="qty" type="number" placeholder="Cant." value="${template.quantity}" min="1">
-    <button class="del" title="Quitar">&times;</button>`;
+    <button class="del" title="Quitar">&times;</button>
+    <button class="dup" title="Duplicar">&plus;</button>`;
   if (polygon) {
     line.dataset.polygon = JSON.stringify(polygon);
     line.dataset.holes = JSON.stringify(holes || []);
     line.classList.add("shape");
     line.title = "Pieza de forma libre cargada de DXF";
   }
+  if (template.obstacles) {
+    line.dataset.obstacles = JSON.stringify(template.obstacles);
+    line.classList.add("shape");
+    line.title = "Chapa con perforaciones internas";
+  }
+  if (template.lines) {
+    line.dataset.lines = JSON.stringify(template.lines);
+  }
   line.querySelector(".del").addEventListener("click", () => line.remove());
+  line.querySelector(".dup").addEventListener("click", () => {
+    const parent = line.parentElement;
+    const clone = itemLine(
+      { name: template.name, width: template.width, height: template.height, quantity: 1 },
+      polygon,
+      holes
+    );
+    parent.insertBefore(clone, line.nextSibling);
+  });
   return line;
 }
 
@@ -58,6 +143,8 @@ function collectRows(container) {
       row.polygon = JSON.parse(line.dataset.polygon);
       if (line.dataset.holes) row.holes = JSON.parse(line.dataset.holes);
     }
+    if (line.dataset.obstacles) row.holes = JSON.parse(line.dataset.obstacles);
+    if (line.dataset.lines) row.lines = JSON.parse(line.dataset.lines);
     return row;
   });
 }
@@ -77,12 +164,112 @@ function init() {
   document.getElementById("optimizeBtn").addEventListener("click", optimize);
   document.getElementById("exportBtn").addEventListener("click", exportDxf);
   document.getElementById("dxfFile").addEventListener("change", loadDxf);
+  document.getElementById("slabDxfFile").addEventListener("change", loadSlabDxf);
+  document.getElementById("saveJobBtn").addEventListener("click", saveJob);
+  document.getElementById("jobSelect").addEventListener("change", (event) => {
+    if (event.target.value) loadJob(Number(event.target.value));
+  });
   document.getElementById("clearDxf").addEventListener("click", () => {
     document.getElementById("pieceRows").innerHTML = "";
     defaultPieces().forEach((p) => pieceRows.appendChild(itemLine(p)));
     document.getElementById("dxfInfo").hidden = true;
     document.getElementById("dxfFile").value = "";
   });
+  document.getElementById("clearPieces").addEventListener("click", () => {
+    document.getElementById("pieceRows").innerHTML = "";
+  });
+  document.getElementById("clearSlabs").addEventListener("click", () => {
+    document.getElementById("slabRows").innerHTML = "";
+  });
+  document.getElementById("resetDefaults").addEventListener("click", () => {
+    document.getElementById("pieceRows").innerHTML = "";
+    document.getElementById("slabRows").innerHTML = "";
+    defaultPieces().forEach((p) => pieceRows.appendChild(itemLine(p)));
+    defaultSlabs().forEach((s) => slabRows.appendChild(itemLine(s)));
+    document.getElementById("dxfInfo").hidden = true;
+    document.getElementById("dxfFile").value = "";
+    layerColors = {};
+    renderEdgeDistances([]);
+  });
+
+  refreshJobs();
+}
+
+function currentPayload() {
+  return {
+    pieces: collectRows(document.getElementById("pieceRows")),
+    slabs: collectRows(document.getElementById("slabRows")),
+    kerf: parseFloat(document.getElementById("kerf").value) || 0,
+    allow_rotation: document.getElementById("allowRotation").checked,
+    intensive: document.getElementById("intensive").checked,
+    layers_colors: layerColors,
+    edge_distances: collectEdgeDistances(),
+  };
+}
+
+async function refreshJobs() {
+  try {
+    const res = await fetch("/api/jobs");
+    if (!res.ok) return;
+    const jobs = await res.json();
+    const select = document.getElementById("jobSelect");
+    select.innerHTML = '<option value="">Cargar trabajo...</option>';
+    jobs.forEach((job) => {
+      const option = document.createElement("option");
+      option.value = job.id;
+      option.textContent = `${job.name} (#${job.id})`;
+      select.appendChild(option);
+    });
+  } catch (_) {
+  }
+}
+
+async function saveJob() {
+  const name = document.getElementById("jobName").value.trim();
+  if (!name) {
+    alert("Ingres\u00e1 un nombre para el trabajo.");
+    return;
+  }
+  try {
+    const res = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, payload: currentPayload(), job_id: currentJobId }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const job = await res.json();
+    currentJobId = job.id;
+    document.getElementById("jobName").value = job.name;
+    await refreshJobs();
+    alert("Trabajo guardado.");
+  } catch (err) {
+    alert("Error al guardar: " + err.message);
+  }
+}
+
+async function loadJob(jobId) {
+  try {
+    const res = await fetch(`/api/jobs/${jobId}`);
+    if (!res.ok) throw new Error(await res.text());
+    const job = await res.json();
+    const payload = job.payload;
+    const pieceRows = document.getElementById("pieceRows");
+    const slabRows = document.getElementById("slabRows");
+    pieceRows.innerHTML = "";
+    slabRows.innerHTML = "";
+    payload.pieces.forEach((piece) => pieceRows.appendChild(itemLine(piece, piece.polygon, piece.holes)));
+    payload.slabs.forEach((slab) => slabRows.appendChild(itemLine(slab)));
+    document.getElementById("kerf").value = payload.kerf ?? 0;
+    document.getElementById("allowRotation").checked = payload.allow_rotation !== false;
+    document.getElementById("intensive").checked = payload.intensive === true;
+    layerColors = payload.layers_colors || {};
+    renderEdgeDistances(payload.pieces, payload.edge_distances);
+    document.getElementById("jobName").value = job.name;
+    currentJobId = job.id;
+    document.getElementById("jobSelect").value = String(job.id);
+  } catch (err) {
+    alert("Error al cargar: " + err.message);
+  }
 }
 
 async function loadDxf(event) {
@@ -107,16 +294,47 @@ async function loadDxf(event) {
     pieceRows.innerHTML = "";
     data.pieces.forEach((p) =>
       pieceRows.appendChild(itemLine(
-        { name: p.name, width: p.width, height: p.height, quantity: 1 },
+        { name: p.name, width: p.width, height: p.height, quantity: p.quantity || 1, lines: p.lines },
         p.polygon, p.holes)));
+    layerColors = data.stats.layers_colors || {};
+    renderEdgeDistances(data.pieces);
     const m2 = (data.stats.total_area / 1e6).toFixed(3);
+    const quantity = data.stats.total_quantity || data.stats.piece_count;
     status.className = "dxf-info ok";
     status.textContent =
-      `${data.pieces.length} piezas cargadas (${m2} m² total). ` +
-      "Agregá las planchas disponibles y optimizá.";
+      `${data.pieces.length} tipos detectados, ${quantity} unidades (${m2} m\u00b2 total). ` +
+      "Revis\u00e1 o modific\u00e1 las cantidades antes de optimizar.";
   } catch (err) {
     status.className = "dxf-info error";
     status.textContent = "Error al leer el DXF: " + err.message;
+  }
+}
+
+async function loadSlabDxf(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById("slabDxfInfo");
+  status.hidden = false;
+  status.textContent = "Leyendo chapa...";
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/slab-parse", { method: "POST", body: fd });
+    if (!res.ok) throw new Error(await res.text());
+    const slab = await res.json();
+    if (slab.error) throw new Error(slab.error);
+    document.getElementById("slabRows").appendChild(itemLine({
+      name: slab.name,
+      width: slab.width,
+      height: slab.height,
+      quantity: 1,
+      obstacles: slab.holes,
+    }));
+    status.className = "dxf-info ok";
+    status.textContent = `${fmt(slab.width)} \u00d7 ${fmt(slab.height)} mm, ${slab.hole_count} perforaci\u00f3n(es) interna(s).`;
+  } catch (err) {
+    status.className = "dxf-info error";
+    status.textContent = "Error al leer la chapa: " + err.message;
   }
 }
 
@@ -127,13 +345,22 @@ async function optimize() {
     .filter((s) => s.width > 0 && s.height > 0);
 
   if (!pieces.length || !slabs.length) {
-    alert("Agrega al menos una pieza y una plancha con medidas válidas.");
+    alert("Agrega al menos una pieza y una plancha con medidas v\u00e1lidas.");
     return;
   }
 
   const btn = document.getElementById("optimizeBtn");
+  const statusEl = document.getElementById("optimizeStatus");
   btn.disabled = true;
   btn.textContent = "Optimizando...";
+  statusEl.hidden = false;
+  statusEl.textContent = "Calculando el mejor agrupamiento... puede tardar unos minutos.";
+  const startedAt = Date.now();
+  const timer = setInterval(() => {
+    const seconds = Math.round((Date.now() - startedAt) / 1000);
+    statusEl.textContent =
+      `Calculando... ${seconds}s transcurridos. Para piezas grandes puede tardar varios minutos.`;
+  }, 1000);
 
   try {
     const res = await fetch("/api/optimize", {
@@ -144,15 +371,24 @@ async function optimize() {
         slabs,
         kerf: parseFloat(document.getElementById("kerf").value) || 0,
         allow_rotation: document.getElementById("allowRotation").checked,
+        intensive: document.getElementById("intensive").checked,
+        layers_colors: layerColors,
+        edge_distances: collectEdgeDistances(),
       }),
     });
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     lastResult = data;
+    paletteIndex = 0;
+    for (const k of Object.keys(nameColorMap)) delete nameColorMap[k];
+    const seconds = ((Date.now() - startedAt) / 1000).toFixed(1);
+    statusEl.textContent = `Optimización completada en ${seconds}s.`;
+    statusEl.hidden = true;
     renderResults(data);
   } catch (err) {
     alert("Error: " + err.message);
   } finally {
+    clearInterval(timer);
     btn.disabled = false;
     btn.textContent = "Optimizar corte";
   }
@@ -160,7 +396,7 @@ async function optimize() {
 
 async function exportDxf() {
   if (!lastResult) {
-    alert("Primero ejecutá la optimización.");
+    alert("Primero ejecut\u00e1 la optimizaci\u00f3n.");
     return;
   }
   try {
@@ -170,6 +406,7 @@ async function exportDxf() {
       body: JSON.stringify({
         slabs_used: lastResult.slabs_used,
         kerf: lastResult.kerf,
+        layers_colors: lastResult.layers_colors || layerColors,
       }),
     });
     if (!res.ok) throw new Error(await res.text());
@@ -177,7 +414,9 @@ async function exportDxf() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "corte_optimizado.dxf";
+    a.download = res.headers.get("Content-Type")?.includes("zip")
+      ? "cortes_optimizado.zip"
+      : "corte_optimizado.dxf";
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -193,12 +432,28 @@ function renderResults(data) {
   const results = document.getElementById("results");
   results.hidden = false;
 
+  const validation = document.getElementById("validation");
+  if (data.validation && !data.validation.valid) {
+    validation.hidden = false;
+    validation.className = "validation error";
+    validation.textContent = "Revisar resultado: " + data.validation.errors.join("; ");
+  } else {
+    validation.hidden = false;
+    validation.className = "validation ok";
+    validation.textContent = "Geometr\u00eda validada: sin solapamientos ni piezas fuera de plancha.";
+  }
+
+  const kerfInfo = data.kerf > 0
+    ? (data.kerf % 1 === 0 ? `${data.kerf} mm hoja` : `${data.kerf} mm hoja`)
+    : "sin hoja";
+
   document.getElementById("summary").innerHTML = [
     ["Piezas colocadas", `${data.pieces_placed}/${data.total_pieces}`],
-    ["Utilización", `${data.global_utilization}%`],
-    ["Planchas usadas", String(data.slabs_used.length)],
-    ["Área colocada", `${(data.placed_area / 1e6).toFixed(3)} m²`],
-    ["Desperdicio", `${(data.total_waste / 1e6).toFixed(3)} m²`],
+    ["Utilizaci\u00f3n", `${data.global_utilization}%`],
+    ["Planchas usadas", `${data.slabs_used.length}`],
+    ["\u00c1rea colocada", `${(data.placed_area / 1e6).toFixed(3)} m\u00b2`],
+    ["Desperdicio total", `${(data.total_waste / 1e6).toFixed(3)} m\u00b2`],
+    ["Corte (kerf)", kerfInfo],
   ].map(([label, value]) => `<div class="stat"><div class="value">${value}</div><div class="label">${label}</div></div>`).join("");
 
   const slabsEl = document.getElementById("slabs");
@@ -211,8 +466,8 @@ function renderResults(data) {
 
     const head = document.createElement("div");
     head.className = "slab-head";
-    head.innerHTML = `<span><strong>${slab.name}</strong> &middot; ${fmt(slab.width)} × ${fmt(slab.height)} mm &middot; ${slab.pieces.length} piezas</span>
-      <span class="util">Utilización: ${slab.utilization}% &middot; Desperdicio: ${fmt(slab.waste_area)} mm²</span>`;
+    head.innerHTML = `<span><strong>${escapeHtml(slab.name)}</strong> &middot; ${fmt(slab.width)} \u00d7 ${fmt(slab.height)} mm &middot; ${slab.pieces.length} piezas</span>
+      <span class="util">Utilizaci\u00f3n: ${slab.utilization}% &middot; Desperdicio: ${(slab.waste_area / 1e6).toFixed(3)} m\u00b2</span>`;
     card.appendChild(head);
 
     const wrap = document.createElement("div");
@@ -227,18 +482,23 @@ function renderResults(data) {
     svg.setAttribute("viewBox", `0 0 ${slab.width} ${slab.height}`);
     svg.style.maxWidth = "100%";
     svg.style.height = "auto";
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+    let scale = 1, panX = 0, panY = 0;
+    const viewGroup = document.createElementNS(ns, "g");
+    viewGroup.setAttribute("transform", `translate(${panX} ${panY}) scale(${scale})`);
+    svg.appendChild(viewGroup);
 
     const bg = document.createElementNS(ns, "rect");
-    bg.setAttribute("x", 0); bg.setAttribute("y", 0);
-    bg.setAttribute("width", slab.width); bg.setAttribute("height", slab.height);
+    bg.setAttribute("x", -10); bg.setAttribute("y", -10);
+    bg.setAttribute("width", slab.width + 20); bg.setAttribute("height", slab.height + 20);
     bg.setAttribute("fill", "#fafafa");
     bg.setAttribute("stroke", "#333"); bg.setAttribute("stroke-width", 3);
-    svg.appendChild(bg);
+    viewGroup.appendChild(bg);
 
-    // grupo con coordenadas matematicas (y hacia arriba)
     const flip = document.createElementNS(ns, "g");
     flip.setAttribute("transform", `scale(1 -1) translate(0 -${slab.height})`);
-    svg.appendChild(flip);
+    viewGroup.appendChild(flip);
 
     slab.pieces.forEach((p) => {
       const fill = colorFor(p.name);
@@ -263,12 +523,24 @@ function renderResults(data) {
         rect.setAttribute("stroke", fill); rect.setAttribute("stroke-width", 3);
         g.appendChild(rect);
       }
+      (p.lines || []).forEach((segment) => {
+        const lineLayer = segment[0];
+        const x1 = segment[1], y1 = segment[2], x2 = segment[3], y2 = segment[4];
+        const stroke = layerColors[lineLayer] !== undefined
+          ? aciToHex(layerColors[lineLayer])
+          : fill;
+        const l = document.createElementNS(ns, "line");
+        l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+        l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+        l.setAttribute("stroke", stroke);
+        l.setAttribute("stroke-width", 4);
+        g.appendChild(l);
+      });
       flip.appendChild(g);
 
-      // etiqueta (y pantalla = altura - y centro)
       const cy = slab.height - (p.y + p.height / 2);
       const cx = p.x + p.width / 2;
-      if (p.width > 60 && p.height > 40) {
+      if (p.width > 60 || p.height > 40) {
         const t1 = document.createElementNS(ns, "text");
         t1.setAttribute("x", cx); t1.setAttribute("y", cy - 2);
         t1.setAttribute("text-anchor", "middle"); t1.setAttribute("font-size", 14);
@@ -276,13 +548,77 @@ function renderResults(data) {
         const t2 = document.createElementNS(ns, "text");
         t2.setAttribute("x", cx); t2.setAttribute("y", cy + 14);
         t2.setAttribute("text-anchor", "middle"); t2.setAttribute("font-size", 12);
-        t2.textContent = `${fmt(p.width)}×${fmt(p.height)}${p.rotated ? " ↻" : ""}`;
-        svg.appendChild(t1); svg.appendChild(t2);
+        t2.textContent = `${fmt(p.width)}\u00d7${fmt(p.height)}${p.rotated ? " \u21bb" : ""}`;
+        viewGroup.appendChild(t1); viewGroup.appendChild(t2);
       }
     });
 
+    let isDragging = false;
+    let lastX = 0, lastY = 0;
+
+    function updateTransform() {
+      viewGroup.setAttribute("transform", `translate(${panX} ${panY}) scale(${scale})`);
+    }
+
+    svg.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      const newScale = Math.min(5, Math.max(0.1, scale * factor));
+      const rect = svg.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      panX = mx - (mx - panX) * (newScale / scale);
+      panY = my - (my - panY) * (newScale / scale);
+      scale = newScale;
+      updateTransform();
+    });
+
+    svg.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      isDragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      svg.style.cursor = "grabbing";
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDragging || !svg.contains(e.target)) return;
+      panX += e.clientX - lastX;
+      panY += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      updateTransform();
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDragging) {
+        isDragging = false;
+        svg.style.cursor = "default";
+      }
+    });
+
+    svg.style.cursor = "grab";
+
     wrap.appendChild(svg);
     card.appendChild(wrap);
+    const detail = document.createElement("div");
+    detail.className = "slab-detail";
+
+    const groups = {};
+    slab.pieces.forEach((p, i) => {
+      const key = `${p.name}|${p.width}|${p.height}`;
+      if (!groups[key]) groups[key] = { name: p.name, width: p.width, height: p.height, rotated: p.rotated, count: 0, positions: [] };
+      groups[key].count++;
+      groups[key].positions.push(`(${p.x}, ${p.y})${p.rotated ? " \u21bb" : ""}`);
+    });
+
+    detail.innerHTML =
+      `<table><thead><tr><th>Pieza</th><th>Dimensiones</th><th>Cant.</th><th>Posiciones</th></tr></thead><tbody>${
+        Object.values(groups).map(g =>
+          `<tr><td><span class="color-dot" style="background:${colorFor(g.name)}"></span> ${escapeHtml(g.name)}</td><td>${fmt(g.width)} \u00d7 ${fmt(g.height)}</td><td>${g.count}</td><td style="font-size:10px;word-break:break-all">${g.positions.join(", ")}</td></tr>`
+        ).join("")
+      }</tbody></table>`;
+    card.appendChild(detail);
     slabsEl.appendChild(card);
   });
 
@@ -296,10 +632,32 @@ function renderResults(data) {
       list[k] = (list[k] || 0) + 1;
     });
     unplaced.innerHTML += Object.entries(list)
-      .map(([k, n]) => `<div>${n} × ${k} mm</div>`).join("");
+      .map(([k, n]) => `<div>${n} \u00d7 ${escapeHtml(k)} mm</div>`).join("");
   } else {
     unplaced.hidden = true;
   }
+
+  const scraps = document.getElementById("scraps");
+  scraps.innerHTML = "";
+  const allPlacedTotalArea = data.placed_area || 0;
+
+  data.slabs_used.forEach((slab, idx) => {
+    const scrapArea = slab.waste_area || 0;
+    if (scrapArea > 1) {
+      scraps.innerHTML +=
+        `<div>Plancha ${idx + 1} (${escapeHtml(slab.name)}): ${(scrapArea / 1e6).toFixed(3)} m\u00b2 de retazos</div>`;
+    }
+  });
+  if (scraps.innerHTML) {
+    scraps.hidden = false;
+    const header = document.createElement("h3");
+    header.textContent = "Retazos / Scraps disponibles:";
+    scraps.insertBefore(header, scraps.firstChild);
+  } else {
+    scraps.hidden = true;
+  }
+
+  results.scrollIntoView({ behavior: "smooth" });
 }
 
 function ringPath(ring) {

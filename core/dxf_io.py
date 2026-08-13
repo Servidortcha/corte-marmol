@@ -14,8 +14,24 @@ from ezdxf.path import make_path
 
 from .packing import _clean_polygon
 
-_UNIT_SCALE = {0: 1.0, 1: 25.4, 2: 304.8, 3: 914.4, 4: 1.0, 5: 10.0, 6: 1000.0, 8: 25.4}
-_SKIP_LAYER = ("texto", "text", "dim", "cota", "título", "titulo", "rotulo", "title", "center", "aux")
+_UNIT_SCALE = {
+    0: 1.0, 1: 25.4, 2: 304.8, 3: 1609344.0, 4: 1.0,
+    5: 10.0, 6: 1000.0, 7: 1000000.0, 8: 0.0000254,
+    9: 0.001, 10: 914.4, 11: 0.0000001, 12: 0.000001,
+    13: 0.001, 14: 100.0, 15: 10000.0, 16: 100000.0,
+    17: 1000000000.0, 18: 149597870700000.0, 19: 3.085677581e19,
+}
+_SKIP_LAYER = (
+    "texto", "text", "dim", "cota", "título", "titulo", "rotulo", "title",
+    "center", "aux", "planchas", "cortes",
+)
+
+_NON_CUT_LINETYPES = {
+    "DASHED", "DASHDOT", "DASHDOT2", "DASHDOTX2", "DASHED2",
+    "DASHEDX2", "DIVIDE", "DOT", "DOT2", "DOTX2", "CENTER",
+    "HIDDEN", "HIDDEN2", "HIDDENX2", "PHANTOM", "PHANTOM2",
+    "PHANTOMX2", "BORDER", "BORDER2", "BORDERX2",
+}
 
 _SUPPORTED = {
     "LINE", "LWPOLYLINE", "POLYLINE", "CIRCLE", "ARC", "SPLINE", "ELLIPSE",
@@ -48,6 +64,11 @@ def _contains(outer, inner):
 
 
 def _stitch_loops(segments, tol=0.5):
+    """Cose segmentos en contornos cerrados conservando la capa de cada borde.
+
+    Devuelve tuplas (layer, pts, edge_layers) donde edge_layers[i] es la capa
+    del borde entre pts[i] y pts[(i+1) % len(pts)].
+    """
     edges = []
     for layer, seg in segments:
         for a, b in zip(seg[:-1], seg[1:]):
@@ -60,7 +81,7 @@ def _stitch_loops(segments, tol=0.5):
             continue
         used[i] = True
         layer, a, b = edges[i]
-        chain = [a, b]
+        chain = [(layer, a), (layer, b)]
         while True:
             last = chain[-1]
             found = False
@@ -68,10 +89,10 @@ def _stitch_loops(segments, tol=0.5):
                 if used[j]:
                     continue
                 lj, x, y = edges[j]
-                if _pt_dist(x, last) < tol:
-                    nxt = y
-                elif _pt_dist(y, last) < tol:
-                    nxt = x
+                if _pt_dist(x, last[1]) < tol:
+                    nxt = (lj, y)
+                elif _pt_dist(y, last[1]) < tol:
+                    nxt = (lj, x)
                 else:
                     continue
                 chain.append(nxt)
@@ -80,17 +101,27 @@ def _stitch_loops(segments, tol=0.5):
                 break
             if not found:
                 break
-        if len(chain) >= 3 and _pt_close(chain[0], chain[-1], tol):
-            loops.append((layer, chain[:-1]))
+        if len(chain) >= 3 and _pt_close(chain[0][1], chain[-1][1], tol):
+            pts = [p for _, p in chain[:-1]]
+            edge_layers = [l for l, _ in chain[1:]] + [chain[0][0]]
+            loops.append((layer, pts, edge_layers))
     return loops
 
 
 def _polygons_with_holes(loops, scale):
     polys = []
-    for layer, pts in loops:
+    for layer, pts, edge_layers in loops:
         poly = _clean_polygon(sg.Polygon([(x * scale, y * scale) for x, y in pts]))
         if poly is not None and poly.area >= 1.0:
-            polys.append({"layer": layer, "poly": poly})
+            lines = []
+            for i, pt in enumerate(pts):
+                nxt = pts[(i + 1) % len(pts)]
+                lines.append((
+                    edge_layers[i],
+                    (pt[0] * scale, pt[1] * scale),
+                    (nxt[0] * scale, nxt[1] * scale),
+                ))
+            polys.append({"layer": layer, "poly": poly, "lines": lines})
 
     # Procesar de mayor a menor: los contenedores ya estan en 'result'
     # cuando llega el turno de sus agujeros.
@@ -104,7 +135,7 @@ def _polygons_with_holes(loops, scale):
                 if container is None or o["poly"].area < container["poly"].area:
                     container = o
         if container is None:
-            result.append({"layer": e["layer"], "poly": p})
+            result.append({"layer": e["layer"], "poly": p, "lines": e["lines"]})
         else:
             container["poly"] = container["poly"].difference(p)
 
@@ -114,7 +145,7 @@ def _polygons_with_holes(loops, scale):
             continue
         poly = _clean_polygon(e["poly"])
         if poly is not None:
-            out.append((e["layer"], poly))
+            out.append((e["layer"], poly, e["lines"]))
     return out
 
 
@@ -137,8 +168,17 @@ def parse_dxf_bytes(data: bytes):
     scale = _UNIT_SCALE.get(doc.header.get("$INSUNITS", 0), 1.0)
     msp = doc.modelspace()
 
+    dashed_layers = set()
+    for layer_entry in doc.layers:
+        layer_name = layer_entry.dxf.name.strip()
+        linetype = (layer_entry.dxf.linetype or "").strip().upper()
+        if linetype in _NON_CUT_LINETYPES:
+            dashed_layers.add(layer_name)
+
     loops = []
     segments = []
+    seen_layers = set()
+    ignored_layers = set()
 
     def visit(e):
         if e.dxftype() == "INSERT":
@@ -149,7 +189,14 @@ def parse_dxf_bytes(data: bytes):
             return
         layer = (e.dxf.layer or "").strip()
         if any(k in layer.lower() for k in _SKIP_LAYER):
+            ignored_layers.add(layer)
             return
+        if layer in dashed_layers:
+            return
+        entity_lt = e.dxf.get("linetype", "")
+        if isinstance(entity_lt, str) and entity_lt.strip().upper() in _NON_CUT_LINETYPES:
+            return
+        seen_layers.add(layer)
         try:
             path = make_path(e)
         except Exception:
@@ -161,7 +208,7 @@ def parse_dxf_bytes(data: bytes):
             if _pt_close(pts[0], pts[-1]):
                 pts = pts[:-1]
             if len(pts) >= 3:
-                loops.append((layer, pts))
+                loops.append((layer, pts, [layer] * len(pts)))
         else:
             segments.append((layer, pts))
 
@@ -171,21 +218,34 @@ def parse_dxf_bytes(data: bytes):
     loops.extend(_stitch_loops(segments))
     polys = _polygons_with_holes(loops, scale)
 
+    layers_colors = {
+        layer_entry.dxf.name.strip(): layer_entry.dxf.color
+        for layer_entry in doc.layers
+    }
+
     pieces = []
     counts = {}
     total_area = 0.0
-    for layer, poly in polys:
+    for layer, poly, piece_lines in polys:
         counts[layer or "0"] = counts.get(layer or "0", 0) + 1
         minx, miny, maxx, maxy = poly.bounds
         pieces.append({
-            "name": layer or f"Pieza {counts[layer or '0']}",
+            "name": f"{layer or 'Pieza'} {counts[layer or '0']}",
             "width": round(maxx - minx, 3),
             "height": round(maxy - miny, 3),
             "area": round(poly.area, 3),
-            "polygon": [[round(x, 3), round(y, 3)] for x, y in poly.exterior.coords[:-1]],
+            "quantity": 1,
+            "polygon": [[round(x - minx, 3), round(y - miny, 3)]
+                        for x, y in poly.exterior.coords[:-1]],
             "holes": [
-                [[round(x, 3), round(y, 3)] for x, y in r.coords[:-1]]
+                [[round(x - minx, 3), round(y - miny, 3)]
+                 for x, y in r.coords[:-1]]
                 for r in poly.interiors
+            ],
+            "lines": [
+                [line_layer, round(x1 - minx, 3), round(y1 - miny, 3),
+                 round(x2 - minx, 3), round(y2 - miny, 3)]
+                for line_layer, (x1, y1), (x2, y2) in piece_lines
             ],
         })
         total_area += poly.area
@@ -195,8 +255,12 @@ def parse_dxf_bytes(data: bytes):
         "pieces": pieces,
         "stats": {
             "piece_count": len(pieces),
+            "total_quantity": len(pieces),
             "total_area": round(total_area, 3),
             "units": "mm",
+            "layers": sorted(layer for layer in seen_layers if layer),
+            "ignored_layers": sorted(layer for layer in ignored_layers if layer),
+            "layers_colors": layers_colors,
         },
     }
 
@@ -216,34 +280,71 @@ def _offset_outline(pts, dist):
         return None
 
 
-def export_result_dxf(slabs_used, kerf=0.0):
+def export_result_dxf(slabs_used, kerf=0.0, layer_colors=None):
     doc = ezdxf.new("R2010")
     doc.units = ezdxf.units.MM
     msp = doc.modelspace()
     doc.layers.add("PLANCHAS", color=8)
     doc.layers.add("PIEZAS", color=1)
+    doc.layers.add("AGUJEROS", color=5)
+    doc.layers.add("OBSTACULOS", color=6)
+    doc.layers.add("ETIQUETAS", color=2)
     if kerf:
         doc.layers.add("CORTES", color=3)
+    for name, color in (layer_colors or {}).items():
+        clean = (name or "").strip()
+        if clean and clean not in doc.layers:
+            doc.layers.add(clean, color=color)
 
-    for slab in slabs_used:
+    gap = 250.0
+    offset_x = 0.0
+    for slab_index, slab in enumerate(slabs_used, start=1):
         w, h = slab["width"], slab["height"]
-        msp.add_lwpolyline([(0, 0), (w, 0), (w, h), (0, h)], close=True,
+        msp.add_lwpolyline([(offset_x, 0), (offset_x + w, 0),
+                            (offset_x + w, h), (offset_x, h)], close=True,
                            dxfattribs={"layer": "PLANCHAS"})
-        for p in slab["pieces"]:
+        msp.add_text(
+            f"PLANCHA {slab_index}: {slab.get('name', 'Plancha')}",
+            dxfattribs={"layer": "ETIQUETAS", "height": 40},
+        ).set_placement((offset_x, h + 60))
+        for hole in slab.get("holes") or []:
+            hole_pts = [(x + offset_x, y) for x, y in hole]
+            msp.add_lwpolyline(hole_pts, close=True,
+                               dxfattribs={"layer": "OBSTACULOS"})
+        for piece_index, p in enumerate(slab["pieces"], start=1):
             pts = p.get("polygon") or [
                 (0, 0), (p["width"], 0),
                 (p["width"], p["height"]), (0, p["height"]),
             ]
-            pts = [(x + p["x"], y + p["y"]) for x, y in pts]
-            msp.add_lwpolyline(pts, close=True, dxfattribs={"layer": "PIEZAS"})
-            for hole in p.get("holes") or []:
-                hole_pts = [(x + p["x"], y + p["y"]) for x, y in hole]
-                msp.add_lwpolyline(hole_pts, close=True,
+            lines = p.get("lines") or []
+            if lines:
+                for line in lines:
+                    line_layer, x1, y1, x2, y2 = line
+                    msp.add_line(
+                        (x1 + p["x"] + offset_x, y1 + p["y"]),
+                        (x2 + p["x"] + offset_x, y2 + p["y"]),
+                        dxfattribs={"layer": line_layer or "PIEZAS"},
+                    )
+            else:
+                outline = [(x + p["x"] + offset_x, y + p["y"]) for x, y in pts]
+                msp.add_lwpolyline(outline, close=True,
                                    dxfattribs={"layer": "PIEZAS"})
+            for hole in p.get("holes") or []:
+                hole_pts = [(x + p["x"] + offset_x, y + p["y"]) for x, y in hole]
+                msp.add_lwpolyline(hole_pts, close=True,
+                                   dxfattribs={"layer": "AGUJEROS"})
+            label_x = offset_x + p["x"] + p["width"] / 2
+            label_y = p["y"] + p["height"] / 2
+            msp.add_text(
+                f"{piece_index}: {p.get('name', 'Pieza')}",
+                dxfattribs={"layer": "ETIQUETAS", "height": 25},
+            ).set_placement((label_x, label_y), align=ezdxf.enums.TextEntityAlignment.CENTER)
             if kerf:
                 cut = _offset_outline(pts, kerf / 2.0)
                 if cut:
+                    cut = [(x + p["x"] + offset_x, y + p["y"]) for x, y in cut]
                     msp.add_lwpolyline(cut, close=True, dxfattribs={"layer": "CORTES"})
+        offset_x += w + gap
 
     out = io.StringIO()
     doc.write(out)

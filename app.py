@@ -1,16 +1,20 @@
 from pathlib import Path
+import io
+import zipfile
 
-from fastapi import FastAPI, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from core.dxf_io import export_result_dxf, parse_dxf_bytes
-from core.models import ExportRequest, OptimizeRequest
-from core.packing import optimize, optimize_polygons
+from core.models import ExportRequest, JobIn, OptimizeRequest
+from core.packing import optimize, optimize_polygons, validate_result
+from core.storage import get_job, init_db, list_jobs, save_job
 
 STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI(title="Corte de Marmol", description="Optimizacion de corte de marmol en planchas")
+init_db()
 
 
 @app.post("/api/optimize")
@@ -18,24 +22,42 @@ def run_optimize(req: OptimizeRequest):
     has_polygons = any(p.polygon for p in req.pieces)
     if has_polygons:
         polygon_pieces = [
-            {"name": p.name, "polygon": p.polygon, "holes": p.holes, "quantity": p.quantity}
-            for p in req.pieces if p.polygon
+            {
+                "name": p.name,
+                "polygon": p.polygon or [[0, 0], [p.width, 0],
+                                           [p.width, p.height], [0, p.height]],
+                "holes": p.holes,
+                "quantity": p.quantity,
+                "lines": p.lines,
+            }
+            for p in req.pieces
         ]
         slabs = [
-            {"name": s.name, "width": s.width, "height": s.height, "quantity": s.quantity}
+            {"name": s.name, "width": s.width, "height": s.height,
+             "quantity": s.quantity, "holes": s.holes}
             for s in req.slabs
         ]
-        return optimize_polygons(polygon_pieces, slabs, kerf=req.kerf,
-                                 allow_rotation=req.allow_rotation)
+        result = optimize_polygons(polygon_pieces, slabs, kerf=req.kerf,
+                                   allow_rotation=req.allow_rotation,
+                                   intensive=req.intensive,
+                                   edge_distances=req.edge_distances)
+        result["layers_colors"] = req.layers_colors or {}
+        result["validation"] = validate_result(result)
+        return result
     pieces = [
         {"name": p.name, "width": p.width, "height": p.height, "quantity": p.quantity}
         for p in req.pieces
     ]
     slabs = [
-        {"name": s.name, "width": s.width, "height": s.height, "quantity": s.quantity}
+        {"name": s.name, "width": s.width, "height": s.height,
+         "quantity": s.quantity, "holes": s.holes}
         for s in req.slabs
     ]
-    return optimize(pieces, slabs, kerf=req.kerf, allow_rotation=req.allow_rotation)
+    result = optimize(pieces, slabs, kerf=req.kerf, allow_rotation=req.allow_rotation,
+                      intensive=req.intensive)
+    result["layers_colors"] = req.layers_colors or {}
+    result["validation"] = validate_result(result)
+    return result
 
 
 @app.post("/api/dxf-parse")
@@ -44,15 +66,73 @@ async def dxf_parse(file: UploadFile):
     return parse_dxf_bytes(data)
 
 
+@app.post("/api/slab-parse")
+async def slab_parse(file: UploadFile):
+    data = await file.read()
+    parsed = parse_dxf_bytes(data)
+    if not parsed["pieces"]:
+        return {"error": "No se encontraron contornos cerrados."}
+    outer = max(parsed["pieces"], key=lambda piece: piece["area"])
+    minx = min(point[0] for point in outer["polygon"])
+    miny = min(point[1] for point in outer["polygon"])
+    holes = [
+        [[round(x - minx, 3), round(y - miny, 3)] for x, y in ring]
+        for ring in outer.get("holes") or []
+    ]
+    return {
+        "name": file.filename or "Chapa DXF",
+        "width": outer["width"],
+        "height": outer["height"],
+        "holes": holes,
+        "hole_count": len(holes),
+    }
+
+
 @app.post("/api/export-dxf")
 def dxf_export(req: ExportRequest):
-    content = export_result_dxf(
-        [s.model_dump() for s in req.slabs_used], kerf=req.kerf)
+    slabs = [s.model_dump() for s in req.slabs_used]
+    if len(slabs) > 1:
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as output:
+            for index, slab in enumerate(slabs, start=1):
+                output.writestr(
+                    f"plancha_{index:03d}.dxf",
+                    export_result_dxf([slab], kerf=req.kerf,
+                                      layer_colors=req.layers_colors),
+                )
+        content = archive.getvalue()
+        media_type = "application/zip"
+        filename = "cortes_optimizado.zip"
+    else:
+        content = export_result_dxf(slabs, kerf=req.kerf,
+                                    layer_colors=req.layers_colors)
+        media_type = "application/dxf"
+        filename = "corte_optimizado.dxf"
     return Response(
         content=content,
-        media_type="application/dxf",
-        headers={"Content-Disposition": 'attachment; filename="corte_optimizado.dxf"'},
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.get("/api/jobs")
+def jobs_list():
+    return list_jobs()
+
+
+@app.get("/api/jobs/{job_id}")
+def job_detail(job_id: int):
+    job = get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    return job
+
+
+@app.post("/api/jobs")
+def job_save(req: JobIn):
+    if req.job_id is not None and get_job(req.job_id) is None:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    return save_job(req.name, req.payload, req.job_id)
 
 
 @app.get("/")

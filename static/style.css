@@ -18,7 +18,7 @@ header p { margin: 4px 0 0; opacity: 0.8; font-size: 13px; }
 
 main {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 380px 1fr;
   gap: 20px;
   padding: 20px;
   align-items: start;
@@ -61,13 +61,25 @@ input, select {
 
 .item-line {
   display: grid;
-  grid-template-columns: 1fr 66px 66px 60px 26px;
-  gap: 4px;
+  grid-template-columns: 1fr 66px 66px 54px 26px 26px;
+  gap: 3px;
   margin-bottom: 6px;
   align-items: center;
 }
 
 .item-line input { width: 100%; }
+
+.item-labels {
+  display: grid;
+  grid-template-columns: 1fr 66px 66px 54px 26px 26px;
+  gap: 3px;
+  margin-bottom: 4px;
+  color: #777;
+  font-size: 10px;
+  text-align: center;
+}
+
+.item-labels span:first-child { text-align: left; }
 
 .item-line .dim { font-size: 10px; color: #888; text-align: center; }
 
@@ -77,7 +89,8 @@ input, select {
 .dxf-info.ok { background: #effdf0; border-color: #b7e4bd; color: #1d7a2e; }
 .dxf-info.error { background: #fdecea; border-color: #f5c6c0; color: #b02a1e; }
 
-.del { border: none; background: #fdecea; color: #c0392b; border-radius: 5px; cursor: pointer; font-size: 14px; }
+.del { border: none; background: #fdecea; color: #c0392b; border-radius: 5px; cursor: pointer; font-size: 14px; padding: 2px 5px; }
+.dup { border: none; background: #e8f4fd; color: #1f6feb; border-radius: 5px; cursor: pointer; font-size: 14px; padding: 2px 5px; font-weight: bold; }
 
 .btn {
   border: none;
@@ -92,6 +105,16 @@ input, select {
 .btn.primary:hover { background: #185ac0; }
 .btn.secondary { background: #eef1f4; color: #333; }
 .btn.secondary:hover { background: #dfe5ea; }
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-row .btn { flex: 1; margin-top: 2px; }
+
+.job-actions { display: grid; gap: 6px; }
+.job-actions .btn { margin-top: 0; }
 
 #summary {
   display: grid;
@@ -110,6 +133,10 @@ input, select {
 .stat .value { font-size: 18px; font-weight: 600; color: #1f6feb; }
 .stat .label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.4px; }
 
+.validation { margin-bottom: 14px; padding: 9px 11px; border-radius: 6px; font-size: 12px; }
+.validation.ok { background: #effdf0; border: 1px solid #b7e4bd; color: #1d7a2e; }
+.validation.error { background: #fdecea; border: 1px solid #f5c6c0; color: #b02a1e; }
+
 .slab-card {
   border: 1px solid #e0e4e8;
   border-radius: 8px;
@@ -125,11 +152,78 @@ input, select {
   padding: 8px 12px;
   font-size: 13px;
   border-bottom: 1px solid #e4e9ee;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .slab-head .util { color: #1f6feb; font-weight: 600; }
 
-.svg-wrap { padding: 12px; overflow-x: auto; }
+.svg-wrap {
+  padding: 12px;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+}
+
+.slab-detail {
+  padding: 8px 12px;
+  font-size: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  border-top: 1px solid #e4e9ee;
+  background: #fafbfc;
+}
+
+.slab-detail table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.slab-detail th, .slab-detail td {
+  text-align: left;
+  padding: 3px 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.slab-detail th {
+  font-weight: 600;
+  color: #555;
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.color-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.edge-distances label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.edge-distances input {
+  width: 80px;
+}
+
+.scraps {
+  margin-top: 14px;
+  padding: 12px;
+  background: #f0f6ff;
+  border: 1px solid #cfdfff;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.scraps h3 { margin: 0 0 8px; font-size: 14px; }
 
 #unplaced {
   margin-top: 14px;

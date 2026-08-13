@@ -20,12 +20,23 @@
       <button id="clearDxf" class="btn secondary">Limpiar piezas del DXF</button>
 
       <h2>Piezas a cortar</h2>
+      <div class="item-labels"><span>Nombre</span><span>Ancho</span><span>Alto</span><span>Cant.</span><span></span><span></span></div>
       <div id="pieceRows"></div>
-      <button id="addPiece" class="btn secondary">+ Agregar pieza</button>
+      <div class="btn-row">
+        <button id="addPiece" class="btn secondary">+ Agregar pieza</button>
+        <button id="clearPieces" class="btn secondary">Limpiar piezas</button>
+      </div>
 
       <h2>Planchas disponibles</h2>
+      <input type="file" id="slabDxfFile" accept=".dxf">
+      <div id="slabDxfInfo" class="dxf-info" hidden></div>
+      <div class="item-labels"><span>Nombre</span><span>Ancho</span><span>Alto</span><span>Cant.</span><span></span><span></span></div>
       <div id="slabRows"></div>
-      <button id="addSlab" class="btn secondary">+ Agregar plancha</button>
+      <div class="btn-row">
+        <button id="addSlab" class="btn secondary">+ Agregar plancha</button>
+        <button id="clearSlabs" class="btn secondary">Limpiar planchas</button>
+      </div>
+      <button id="resetDefaults" class="btn secondary" style="width:100%; margin-top:4px;">Restaurar valores por defecto</button>
 
       <h2>Parámetros</h2>
       <label class="row">
@@ -36,19 +47,39 @@
         <span>Permitir rotar piezas</span>
         <input type="checkbox" id="allowRotation" checked>
       </label>
+      <label class="row">
+        <span>Optimización intensiva (más lenta, mejor resultado)</span>
+        <input type="checkbox" id="intensive">
+      </label>
+
+      <h2>Separación por color de línea</h2>
+      <div id="edgeDistanceHint" class="dxf-info" hidden>
+        Cargá un DXF para configurar la separación de cada color de línea.
+      </div>
+      <div id="edgeDistanceRows" class="edge-distances"></div>
 
       <button id="optimizeBtn" class="btn primary">Optimizar corte</button>
+      <div id="optimizeStatus" class="dxf-info" hidden></div>
+
+      <h2>Trabajos guardados</h2>
+      <div class="job-actions">
+        <input id="jobName" placeholder="Nombre del trabajo">
+        <button id="saveJobBtn" class="btn secondary">Guardar trabajo</button>
+        <select id="jobSelect"><option value="">Cargar trabajo...</option></select>
+      </div>
     </section>
 
     <section class="panel results" id="results" hidden>
       <h2>Resultado</h2>
+      <div id="validation" class="validation" hidden></div>
       <div id="summary"></div>
       <button id="exportBtn" class="btn primary">Exportar DXF</button>
       <div id="slabs"></div>
+      <div id="scraps" class="scraps" hidden></div>
       <div id="unplaced"></div>
     </section>
   </main>
 
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>
