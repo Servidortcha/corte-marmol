@@ -718,7 +718,10 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
     items = []
     for p in pieces:
         for _ in range(int(p.get("quantity", 1))):
-            items.append({"name": p["name"], "w": p["width"], "h": p["height"]})
+            items.append({"name": p["name"], "w": p["width"], "h": p["height"],
+                          "priority": int(p.get("priority", 0))})
+
+    priority_map = {p["name"]: int(p.get("priority", 0)) for p in pieces}
 
     bins = []
     for s in slabs:
@@ -748,6 +751,10 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
             sorted(items, key=lambda i: (i["name"], max(i["w"], i["h"]))),
             sorted(items, key=lambda i: (i["w"] * i["h"], i["name"])),
             sorted(items, key=lambda i: (max(i["w"], i["h"]), min(i["w"], i["h"]))),
+            # por prioridad: las prioritarias primero, luego por area
+            sorted(items, key=lambda i: (
+                1 if i.get("priority", 0) <= 0 else 0,
+                i.get("priority", 0), -(i["w"] * i["h"]))),
         ]
         rng = random.Random(20260812)
         shuffle_count = 80 if intensive else 15
@@ -807,6 +814,16 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
     used_slabs_area = sum(b.width * b.height for b in results)
 
     def _bin_json(b):
+        piece_json = [
+            {
+                "name": p.name, "width": p.width, "height": p.height,
+                "x": round(p.x, 4), "y": round(p.y, 4), "rotated": p.rotated,
+                "priority": priority_map.get(p.name, 0),
+            }
+            for p in b.pieces
+        ]
+        piece_json.sort(key=lambda p: (
+            1 if p["priority"] <= 0 else 0, p["priority"]))
         return {
             "name": b.name,
             "width": b.width,
@@ -815,13 +832,7 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
             "used_area": round(b.used_area, 4),
             "waste_area": round(b.waste_area, 4),
             "utilization": round(b.utilization * 100, 2),
-            "pieces": [
-                {
-                    "name": p.name, "width": p.width, "height": p.height,
-                    "x": round(p.x, 4), "y": round(p.y, 4), "rotated": p.rotated,
-                }
-                for p in b.pieces
-            ],
+            "pieces": piece_json,
         }
 
     return {
@@ -1095,6 +1106,12 @@ def _maxrects_place_polygons(bin_w, bin_h, kerf, allow_rotation, items, blocked)
     return infos, remaining
 
 
+def _order_by_priority(pieces):
+    pieces.sort(key=lambda p: (1 if p["priority"] <= 0 else 0,
+                               p["priority"]))
+    return pieces
+
+
 def _build_collision_shape(poly, kerf, lines, edge_distances):
     """Forma de colision: contorno con buffer de kerf + engrosado en bordes
     con distancia personalizada por capa (p.ej. ingletes en lineas rojas).
@@ -1131,7 +1148,9 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
     kerf = max(0.0, float(kerf))
 
     items = []
+    priority_map = {}
     for p in polygon_pieces:
+        priority_map[p["name"]] = int(p.get("priority", 0))
         for _ in range(int(p.get("quantity", 1))):
             poly = sg.Polygon(p["polygon"], [h for h in p.get("holes") or []])
             poly = _clean_polygon(poly)
@@ -1146,6 +1165,7 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             items.append({
                 "name": p["name"], "poly": poly, "area": poly.area,
                 "lines": lines,
+                "priority": int(p.get("priority", 0)),
                 "collision": collision,
                 "collision_rot": collision_rot,
                 "offset": (poly.bounds[0] - collision.bounds[0],
@@ -1194,6 +1214,10 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             # agrupado por bounding box - similares juntas
             sorted(items, key=lambda i: (i["area"], i["name"])),
             sorted(items, key=lambda i: (max(i["poly"].bounds[2], i["poly"].bounds[3]), min(i["poly"].bounds[2], i["poly"].bounds[3]))),
+            # por prioridad: las prioritarias primero, luego por area
+            sorted(items, key=lambda i: (
+                1 if i.get("priority", 0) <= 0 else 0,
+                i.get("priority", 0), -i["area"])),
         ]
         rng = random.Random(20260812)
         shuffle_count = 60 if intensive else 10
@@ -1255,13 +1279,14 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             "used_area": round(b["used_area"], 4),
             "waste_area": round(b["waste_area"], 4),
             "utilization": round(b["utilization"] * 100, 2),
-            "pieces": [
+            "pieces": _order_by_priority([
                 {
                     "name": name, "width": round(poly.bounds[2], 3),
                     "height": round(poly.bounds[3], 3),
                     "x": round(x + offset[0], 3),
                     "y": round(y + offset[1], 3),
                     "rotated": rot, **_polygon_points(poly),
+                    "priority": priority_map.get(name, 0),
                     "lines": [
                         [line_layer, round(x1, 3), round(y1, 3),
                          round(x2, 3), round(y2, 3)]
@@ -1270,7 +1295,7 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
                 }
                 for name, poly, x, y, rot, _area, lines, _collision, offset
                 in b["pieces"]
-            ],
+            ]),
         }
 
     return {

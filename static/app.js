@@ -91,6 +91,7 @@ function itemLine(template, polygon, holes) {
     <input class="w" type="number" placeholder="Ancho" value="${template.width}">
     <input class="h" type="number" placeholder="Alto" value="${template.height}">
     <input class="qty" type="number" placeholder="Cant." value="${template.quantity}" min="1">
+    <input class="prio" type="number" placeholder="Prio" value="${template.priority || ""}" min="0" title="Prioridad de corte: 1 primero">
     <button class="del" title="Quitar">&times;</button>
     <button class="dup" title="Duplicar">&plus;</button>`;
   if (polygon) {
@@ -135,6 +136,7 @@ function collectRows(container) {
       width: parseFloat(line.querySelector(".w").value) || 0,
       height: parseFloat(line.querySelector(".h").value) || 0,
       quantity: parseInt(line.querySelector(".qty").value, 10) || 1,
+      priority: parseInt(line.querySelector(".prio").value, 10) || 0,
     };
     if (line.dataset.polygon) {
       row.polygon = JSON.parse(line.dataset.polygon);

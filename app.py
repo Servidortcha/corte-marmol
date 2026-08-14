@@ -98,6 +98,7 @@ def run_optimize(req: OptimizeRequest):
                                            [p.width, p.height], [0, p.height]],
                 "holes": p.holes,
                 "quantity": p.quantity,
+                "priority": p.priority,
                 "lines": p.lines,
             }
             for p in req.pieces
@@ -115,7 +116,8 @@ def run_optimize(req: OptimizeRequest):
         result["validation"] = validate_result(result)
         return result
     pieces = [
-        {"name": p.name, "width": p.width, "height": p.height, "quantity": p.quantity}
+        {"name": p.name, "width": p.width, "height": p.height,
+         "quantity": p.quantity, "priority": p.priority}
         for p in req.pieces
     ]
     slabs = [

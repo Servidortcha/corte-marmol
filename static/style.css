@@ -136,7 +136,7 @@ input, select {
 
 .item-line {
   display: grid;
-  grid-template-columns: 1fr 66px 66px 54px 26px 26px;
+  grid-template-columns: 1fr 66px 66px 54px 44px 26px 26px;
   gap: 3px;
   margin-bottom: 6px;
   align-items: center;
@@ -146,7 +146,7 @@ input, select {
 
 .item-labels {
   display: grid;
-  grid-template-columns: 1fr 66px 66px 54px 26px 26px;
+  grid-template-columns: 1fr 66px 66px 54px 44px 26px 26px;
   gap: 3px;
   margin-bottom: 4px;
   color: #777;

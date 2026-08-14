@@ -135,6 +135,30 @@ class RegressionTests(unittest.TestCase):
         ]
         self.assertGreaterEqual(geometries[0].distance(geometries[1]), 9.9)
 
+    def test_priority_orders_pieces_in_result(self):
+        from core.packing import optimize
+
+        result = optimize(
+            [
+                {"name": "Normal", "width": 200, "height": 100, "quantity": 1,
+                 "priority": 0},
+                {"name": "Urgente", "width": 150, "height": 80, "quantity": 1,
+                 "priority": 1},
+                {"name": "Media", "width": 120, "height": 60, "quantity": 1,
+                 "priority": 2},
+            ],
+            [{"name": "Plancha", "width": 1000, "height": 500, "quantity": 1}],
+            kerf=4,
+        )
+
+        self.assertEqual(result["pieces_placed"], 3)
+        pieces = result["slabs_used"][0]["pieces"]
+        priorities = [p["priority"] for p in pieces]
+        self.assertEqual([p for p in priorities if p > 0],
+                         sorted([p for p in priorities if p > 0]))
+        self.assertEqual(pieces[0]["name"], "Urgente")
+        self.assertEqual(pieces[1]["name"], "Media")
+
     def test_license_key_roundtrip(self):
         from core import licencia
 

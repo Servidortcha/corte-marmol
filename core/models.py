@@ -6,6 +6,8 @@ class PieceIn(BaseModel):
     width: float = Field(gt=0, description="Ancho en mm")
     height: float = Field(gt=0, description="Alto en mm")
     quantity: int = Field(1, ge=1)
+    priority: int = Field(
+        0, ge=0, description="Prioridad de corte: 1 primero, 2 despues... 0 = sin prioridad")
     polygon: list[list[float]] | None = Field(
         None, description="Forma libre como lista de puntos [x, y] (opcional)")
     holes: list[list[list[float]]] | None = Field(
