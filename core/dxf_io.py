@@ -265,21 +265,6 @@ def parse_dxf_bytes(data: bytes):
     }
 
 
-def _offset_outline(pts, dist):
-    try:
-        poly = sg.Polygon(pts)
-        if not poly.is_valid:
-            return None
-        cut = poly.buffer(dist, join_style=2)
-        if cut.is_empty:
-            return None
-        if cut.geom_type == "MultiPolygon":
-            cut = max(cut.geoms, key=lambda g: g.area)
-        return [(round(x, 3), round(y, 3)) for x, y in cut.exterior.coords[:-1]]
-    except Exception:
-        return None
-
-
 def export_result_dxf(slabs_used, kerf=0.0, layer_colors=None):
     doc = ezdxf.new("R2010")
     doc.units = ezdxf.units.MM
@@ -289,8 +274,6 @@ def export_result_dxf(slabs_used, kerf=0.0, layer_colors=None):
     doc.layers.add("AGUJEROS", color=5)
     doc.layers.add("OBSTACULOS", color=6)
     doc.layers.add("ETIQUETAS", color=2)
-    if kerf:
-        doc.layers.add("CORTES", color=3)
     for name, color in (layer_colors or {}).items():
         clean = (name or "").strip()
         if clean and clean not in doc.layers:
@@ -339,11 +322,6 @@ def export_result_dxf(slabs_used, kerf=0.0, layer_colors=None):
                 f"{piece_index}: {p.get('name', 'Pieza')}",
                 dxfattribs={"layer": "ETIQUETAS", "height": 25},
             ).set_placement((label_x, label_y), align=ezdxf.enums.TextEntityAlignment.CENTER)
-            if kerf:
-                cut = _offset_outline(pts, kerf / 2.0)
-                if cut:
-                    cut = [(x + p["x"] + offset_x, y + p["y"]) for x, y in cut]
-                    msp.add_lwpolyline(cut, close=True, dxfattribs={"layer": "CORTES"})
         offset_x += w + gap
 
     out = io.StringIO()
