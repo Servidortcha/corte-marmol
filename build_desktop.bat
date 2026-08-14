@@ -9,6 +9,8 @@ if not exist ".venv\Scripts\pyinstaller.exe" (
 
 ".venv\Scripts\python.exe" -m PyInstaller --noconfirm --clean --onefile --windowed ^
     --name "LaPuntualMarmoleria" ^
+    --icon "static\icono.ico" ^
+    --version-file "version_info.txt" ^
     --add-data "static;static" ^
     --collect-submodules webview ^
     --hidden-import uvicorn.logging ^
