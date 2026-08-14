@@ -356,16 +356,11 @@ async function optimize() {
   btn.disabled = true;
   btn.textContent = "Optimizando...";
   statusEl.hidden = false;
-  statusEl.textContent = "Calculando el mejor agrupamiento... puede tardar unos minutos.";
+  statusEl.textContent = "Enviando cálculo...";
   const startedAt = Date.now();
-  const timer = setInterval(() => {
-    const seconds = Math.round((Date.now() - startedAt) / 1000);
-    statusEl.textContent =
-      `Calculando... ${seconds}s transcurridos. Para piezas grandes puede tardar varios minutos.`;
-  }, 1000);
 
   try {
-    const res = await fetch("/api/optimize", {
+    const res = await fetch("/api/optimize-async", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -379,7 +374,26 @@ async function optimize() {
       }),
     });
     if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
+    const { job_id } = await res.json();
+
+    let data = null;
+    while (true) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      statusEl.textContent =
+        `Calculando el mejor agrupamiento... ${seconds}s. Piezas grandes pueden tardar varios minutos.`;
+      const statusRes = await fetch(`/api/optimize-async/${job_id}`);
+      if (!statusRes.ok) throw new Error(await statusRes.text());
+      const job = await statusRes.json();
+      if (job.status === "done") {
+        data = job.result;
+        break;
+      }
+      if (job.status === "error") {
+        throw new Error(job.error || "Error en la optimización");
+      }
+    }
+
     lastResult = data;
     paletteIndex = 0;
     for (const k of Object.keys(nameColorMap)) delete nameColorMap[k];
@@ -390,7 +404,6 @@ async function optimize() {
   } catch (err) {
     alert("Error: " + err.message);
   } finally {
-    clearInterval(timer);
     btn.disabled = false;
     btn.textContent = "Optimizar corte";
   }

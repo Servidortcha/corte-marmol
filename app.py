@@ -1,5 +1,8 @@
 from pathlib import Path
 import io
+import threading
+import time
+import uuid
 import zipfile
 
 from fastapi import FastAPI, HTTPException, UploadFile
@@ -13,8 +16,39 @@ from core.storage import get_job, init_db, list_jobs, save_job
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI(title="Corte de Marmol", description="Optimizacion de corte de marmol en planchas")
+app = FastAPI(title="La Puntual Marmolería",
+              description="Optimización de corte de mármol en planchas")
 init_db()
+
+_JOBS: dict[str, dict] = {}
+
+
+def _run_optimize_job(job_id: str, req_dict: dict):
+    try:
+        request = OptimizeRequest(**req_dict)
+        result = run_optimize(request)
+        _JOBS[job_id] = {"status": "done", "result": result}
+    except Exception as exc:
+        _JOBS[job_id] = {"status": "error", "error": str(exc)}
+
+
+@app.post("/api/optimize-async")
+def optimize_async(req: OptimizeRequest):
+    job_id = uuid.uuid4().hex
+    _JOBS[job_id] = {"status": "running", "started": time.time()}
+    thread = threading.Thread(
+        target=_run_optimize_job, args=(job_id, req.model_dump()),
+        daemon=True)
+    thread.start()
+    return {"job_id": job_id, "status": "running"}
+
+
+@app.get("/api/optimize-async/{job_id}")
+def optimize_status(job_id: str):
+    job = _JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+    return job
 
 
 @app.post("/api/optimize")
