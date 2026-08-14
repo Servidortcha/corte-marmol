@@ -503,8 +503,9 @@ async function exportDxf() {
     alert("Primero ejecut\u00e1 la optimizaci\u00f3n.");
     return;
   }
+  const isDesktop = typeof window.pywebview !== "undefined";
   try {
-    const res = await fetch("/api/export-dxf", {
+    const res = await fetch(isDesktop ? "/api/export-dxf-save" : "/api/export-dxf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -514,6 +515,11 @@ async function exportDxf() {
       }),
     });
     if (!res.ok) throw new Error(await res.text());
+    if (isDesktop) {
+      const data = await res.json();
+      alert("DXF guardado en:\n" + data.files.join("\n"));
+      return;
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

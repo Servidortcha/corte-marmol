@@ -95,8 +95,10 @@ def build():
         "(por ejemplo, los ingletes en rojo).",
         "Pulsar \"Optimizar corte\". El calculo puede tardar unos minutos; la "
         "pagina muestra el progreso.",
-        "Con el boton \"Exportar DXF\" se descarga el plano optimizado con las "
-        "piezas ubicadas, listo para la maquina de corte.",
+        "Con el boton \"Exportar DXF\" se genera el plano optimizado con las "
+        "piezas ubicadas, listo para la maquina de corte. En la app de "
+        "escritorio el archivo se guarda en la carpeta data\\exportados, junto "
+        "al programa; en la version web se descarga.",
     ]
     for i, step in enumerate(steps2, start=1):
         mc(pdf, 0, 6, f"{i}. {step}")

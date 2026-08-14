@@ -20,6 +20,13 @@ DB_PATH = Path(os.getenv(
 ))
 
 
+def export_dir():
+    """Carpeta donde la app de escritorio guarda los DXF exportados."""
+    folder = _project_base() / "data" / "exportados"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
 def _connect():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)

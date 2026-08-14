@@ -15,7 +15,7 @@ from core.licencia import activate as licencia_activate
 from core.licencia import status as licencia_status
 from core.models import ExportRequest, JobIn, LicenseIn, OptimizeRequest
 from core.packing import optimize, optimize_polygons, validate_result
-from core.storage import get_job, init_db, list_jobs, save_job
+from core.storage import export_dir, get_job, init_db, list_jobs, save_job
 
 
 def _resource_path(name):
@@ -158,6 +158,29 @@ async def slab_parse(file: UploadFile):
         "holes": holes,
         "hole_count": len(holes),
     }
+
+
+@app.post("/api/export-dxf-save")
+def dxf_export_save(req: ExportRequest):
+    """Guarda el DXF en disco (para la app de escritorio, que no descarga)."""
+    _require_licencia()
+    from datetime import datetime
+
+    slabs = [s.model_dump() for s in req.slabs_used]
+    folder = export_dir()
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if len(slabs) > 1:
+        names = []
+        for index, slab in enumerate(slabs, start=1):
+            name = folder / f"plancha_{stamp}_{index:03d}.dxf"
+            name.write_bytes(export_result_dxf(
+                [slab], kerf=req.kerf, layer_colors=req.layers_colors))
+            names.append(str(name))
+        return {"files": names}
+    name = folder / f"corte_optimizado_{stamp}.dxf"
+    name.write_bytes(export_result_dxf(
+        slabs, kerf=req.kerf, layer_colors=req.layers_colors))
+    return {"files": [str(name)]}
 
 
 @app.post("/api/export-dxf")
