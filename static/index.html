@@ -3,13 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Corte de Mármol - Optimización</title>
+  <title>La Puntual Marmolería - Optimización</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header>
-    <h1>Optimización de Corte de Mármol</h1>
-    <p>Empaquetado de piezas en planchas variables con hoja de sierra</p>
+    <div class="header-brand">
+      <img src="/static/logo.jpg" alt="La Puntual Marmolería" class="logo">
+      <div>
+        <h1>La Puntual Marmolería</h1>
+        <p>Optimización de corte de mármol en planchas</p>
+      </div>
+    </div>
   </header>
 
   <main>
@@ -50,6 +55,13 @@
       <label class="row">
         <span>Optimización intensiva (más lenta, mejor resultado)</span>
         <input type="checkbox" id="intensive">
+      </label>
+      <label class="row">
+        <span>Unidades de visualización</span>
+        <select id="units">
+          <option value="mm" selected>mm</option>
+          <option value="cm">cm</option>
+        </select>
       </label>
 
       <h2>Separación por color de línea</h2>

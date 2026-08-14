@@ -29,6 +29,11 @@ function colorFor(name) {
 
 let lastResult = null;
 let currentJobId = null;
+let units = "mm";
+
+function fmt(n) {
+  return n % 1 === 0 ? String(n) : String(Math.round(n * 100) / 100);
+}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>'"]/g, (char) => ({
@@ -163,6 +168,10 @@ function init() {
 
   document.getElementById("optimizeBtn").addEventListener("click", optimize);
   document.getElementById("exportBtn").addEventListener("click", exportDxf);
+  document.getElementById("units").addEventListener("change", (event) => {
+    units = event.target.value;
+    if (lastResult) renderResults(lastResult);
+  });
   document.getElementById("dxfFile").addEventListener("change", loadDxf);
   document.getElementById("slabDxfFile").addEventListener("change", loadSlabDxf);
   document.getElementById("saveJobBtn").addEventListener("click", saveJob);
@@ -204,6 +213,7 @@ function currentPayload() {
     intensive: document.getElementById("intensive").checked,
     layers_colors: layerColors,
     edge_distances: collectEdgeDistances(),
+    units,
   };
 }
 
