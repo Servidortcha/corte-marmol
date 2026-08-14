@@ -231,6 +231,33 @@ input, select {
 .validation.ok { background: #effdf0; border: 1px solid #b7e4bd; color: #1d7a2e; }
 .validation.error { background: #fdecea; border: 1px solid #f5c6c0; color: #b02a1e; }
 
+.unplaced-alert {
+  background: #b02a1e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(176, 42, 30, 0.35);
+  animation: alertPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes alertPulse {
+  0%, 100% { box-shadow: 0 2px 8px rgba(176, 42, 30, 0.35); }
+  50% { box-shadow: 0 2px 16px rgba(176, 42, 30, 0.75); }
+}
+
+.unplaced-alert .alert-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.unplaced-alert .alert-list {
+  opacity: 0.95;
+  line-height: 1.5;
+}
+
 .slab-card {
   border: 1px solid #e0e4e8;
   border-radius: 8px;

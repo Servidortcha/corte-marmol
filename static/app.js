@@ -598,6 +598,25 @@ function renderResults(data) {
     validation.textContent = "Geometr\u00eda validada: sin solapamientos ni piezas fuera de plancha.";
   }
 
+  const unplacedAlert = document.getElementById("unplacedAlert");
+  if (data.pieces_unplaced) {
+    const grouped = {};
+    data.unplaced.forEach((p) => {
+      const key = `${p.name} ${p.width}x${p.height}`;
+      grouped[key] = (grouped[key] || 0) + 1;
+    });
+    const items = Object.entries(grouped)
+      .map(([k, n]) => `<div>${n} \u00d7 ${escapeHtml(k)} mm</div>`)
+      .join("");
+    unplacedAlert.hidden = false;
+    unplacedAlert.innerHTML =
+      `<div class="alert-title">\u26a0 ${data.pieces_unplaced} pieza(s) NO se pudieron colocar por falta de espacio</div>` +
+      `<div class="alert-list">${items}</div>` +
+      `<div style="margin-top:6px;opacity:0.9">Verific\u00e1 que las piezas entren en alguna plancha o aument\u00e1 la cantidad/tama\u00f1o de planchas disponibles.</div>`;
+  } else {
+    unplacedAlert.hidden = true;
+  }
+
   const kerfInfo = data.kerf > 0
     ? (data.kerf % 1 === 0 ? `${data.kerf} mm hoja` : `${data.kerf} mm hoja`)
     : "sin hoja";
