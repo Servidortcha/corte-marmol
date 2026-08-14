@@ -136,30 +136,22 @@ input, select {
 
 .item-line {
   display: grid;
-  grid-template-columns: 1fr 60px 60px 46px 24px 24px;
+  grid-template-columns: 1fr 60px 60px 46px 40px 30px 24px 24px;
   gap: 3px;
   margin-bottom: 6px;
   align-items: center;
-}
-
-.item-line.with-prio {
-  grid-template-columns: 1fr 60px 60px 46px 40px 30px 24px 24px;
 }
 
 .item-line input { width: 100%; }
 
 .item-labels {
   display: grid;
-  grid-template-columns: 1fr 60px 60px 46px 24px 24px;
+  grid-template-columns: 1fr 60px 60px 46px 40px 30px 24px 24px;
   gap: 3px;
   margin-bottom: 4px;
   color: #777;
   font-size: 10px;
   text-align: center;
-}
-
-.item-labels.prio {
-  grid-template-columns: 1fr 60px 60px 46px 40px 30px 24px 24px;
 }
 
 .arrows {

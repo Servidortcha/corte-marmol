@@ -105,7 +105,8 @@ def run_optimize(req: OptimizeRequest):
         ]
         slabs = [
             {"name": s.name, "width": s.width, "height": s.height,
-             "quantity": s.quantity, "holes": s.holes}
+             "quantity": s.quantity, "holes": s.holes,
+             "priority": s.priority}
             for s in req.slabs
         ]
         result = optimize_polygons(polygon_pieces, slabs, kerf=req.kerf,
@@ -122,7 +123,8 @@ def run_optimize(req: OptimizeRequest):
     ]
     slabs = [
         {"name": s.name, "width": s.width, "height": s.height,
-         "quantity": s.quantity, "holes": s.holes}
+         "quantity": s.quantity, "holes": s.holes,
+         "priority": s.priority}
         for s in req.slabs
     ]
     result = optimize(pieces, slabs, kerf=req.kerf, allow_rotation=req.allow_rotation,

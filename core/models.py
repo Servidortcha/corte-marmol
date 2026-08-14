@@ -21,6 +21,8 @@ class SlabIn(BaseModel):
     width: float = Field(gt=0)
     height: float = Field(gt=0)
     quantity: int = Field(1, ge=1)
+    priority: int = Field(
+        0, ge=0, description="Prioridad de uso: 1 se usa primero, 0 = normal")
     holes: list[list[list[float]]] | None = Field(
         None, description="Obstaculos internos de la chapa como contornos cerrados")
 

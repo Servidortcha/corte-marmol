@@ -159,6 +159,24 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(pieces[0]["name"], "Urgente")
         self.assertEqual(pieces[1]["name"], "Media")
 
+    def test_slab_priority_uses_priority_slabs_first(self):
+        from core.packing import optimize
+
+        result = optimize(
+            [{"name": "Pieza", "width": 800, "height": 600, "quantity": 1}],
+            [
+                {"name": "Gris", "width": 3000, "height": 1500, "quantity": 1,
+                 "priority": 2},
+                {"name": "Blanco", "width": 3200, "height": 1600, "quantity": 1,
+                 "priority": 1},
+            ],
+            kerf=4,
+        )
+
+        self.assertEqual(result["pieces_placed"], 1)
+        self.assertEqual(len(result["slabs_used"]), 1)
+        self.assertEqual(result["slabs_used"][0]["name"], "Blanco")
+
     def test_license_key_roundtrip(self):
         from core import licencia
 

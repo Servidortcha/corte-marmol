@@ -38,6 +38,7 @@ class BinResult:
     utilization: float = 0.0
     unplaced_after: int = 0
     holes: list = field(default_factory=list)
+    priority: int = 0
 
 
 def _layout_metrics(geometries, kerf=0.0):
@@ -364,10 +365,12 @@ def _try_strategy(strategy):
                 used_area=used, waste_area=max(0.0, area - used),
                 utilization=used / area, unplaced_after=len(pool),
                 holes=b.get("holes") or [],
+                priority=b.get("priority", 0),
             ))
     used_slabs_area = sum(b.width * b.height for b in results)
     placed_count = sum(len(b.pieces) for b in results)
     placed_area = sum(b.used_area for b in results)
+    priority_sum = sum(b.priority for b in results)
     min_utilization = min((b.utilization for b in results), default=0.0)
     global_util = placed_area / used_slabs_area if used_slabs_area else 0.0
     compact_terms = [0.0, 0.0, 0.0, 0.0]
@@ -377,7 +380,7 @@ def _try_strategy(strategy):
         terms = _compactness_terms(geometries, b.width * b.height, kerf)
         compact_terms = [current + value
                          for current, value in zip(compact_terms, terms)]
-    score = (placed_count, -used_slabs_area, global_util,
+    score = (placed_count, -priority_sum, -used_slabs_area, global_util,
              min_utilization, *compact_terms)
     return (score, results, pool)
 
@@ -405,6 +408,7 @@ def _try_polygon_strategy(strategy):
                     "pieces": placed_infos, "used_area": used,
                     "waste_area": max(0.0, area - used),
                     "utilization": used / area,
+                    "priority": b.get("priority", 0),
                 })
             continue
         if placement_mode == "guillotine":
@@ -419,6 +423,7 @@ def _try_polygon_strategy(strategy):
                     "pieces": placed_infos, "used_area": used,
                     "waste_area": max(0.0, area - used),
                     "utilization": used / area,
+                    "priority": b.get("priority", 0),
                 })
             continue
         placed_infos = []
@@ -469,11 +474,13 @@ def _try_polygon_strategy(strategy):
                 "holes": b.get("holes") or [],
                 "pieces": placed_infos, "used_area": used,
                 "waste_area": max(0.0, area - used), "utilization": used / area,
+                "priority": b.get("priority", 0),
             })
         pool = remaining
     used_slabs_area = sum(r["width"] * r["height"] for r in results)
     placed_count = sum(len(r["pieces"]) for r in results)
     placed_area = sum(r["used_area"] for r in results)
+    priority_sum = sum(r.get("priority", 0) for r in results)
     global_util = placed_area / used_slabs_area if used_slabs_area else 0.0
     min_utilization = min((r["utilization"] for r in results), default=0.0)
     compact_terms = [0.0, 0.0, 0.0, 0.0]
@@ -486,9 +493,10 @@ def _try_polygon_strategy(strategy):
                          for current, value in zip(compact_terms, terms)]
     if not _polygon_infos_valid(results):
         return ((-1, float("-inf"), float("-inf"), float("-inf"),
-                 float("-inf"), float("-inf"), float("-inf"), float("-inf")),
+                 float("-inf"), float("-inf"), float("-inf"), float("-inf"),
+                 float("-inf")),
                 results, pool)
-    score = (placed_count, -used_slabs_area, global_util,
+    score = (placed_count, -priority_sum, -used_slabs_area, global_util,
              min_utilization, *compact_terms)
     return (score, results, pool)
 
@@ -728,7 +736,8 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
         for _ in range(int(s.get("quantity", 1))):
             holes = s.get("holes") or []
             bins.append({"name": s["name"], "w": s["width"], "h": s["height"],
-                         "holes": holes})
+                         "holes": holes,
+                         "priority": int(s.get("priority", 0))})
 
     if not items:
         return {
@@ -766,15 +775,20 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
 
     rotation_modes = [allow_rotation, False] if allow_rotation else [False]
     placement_modes = ["maxrects", "guillotine", "bottomleft", "compact"]
-    bin_areas = [b["w"] * b["h"] for b in bins]
-    if len(bin_areas) > 1 and min(bin_areas) != max(bin_areas):
-        bin_orders = [
-            bins,
-            sorted(bins, key=lambda b: b["w"] * b["h"], reverse=True),
-            sorted(bins, key=lambda b: b["w"] * b["h"]),
-        ]
+    if any(b.get("priority", 0) > 0 for b in bins):
+        bin_orders = [sorted(bins, key=lambda b: (
+            1 if b.get("priority", 0) <= 0 else 0,
+            b.get("priority", 0), -(b["w"] * b["h"])))]
     else:
-        bin_orders = [bins]
+        bin_areas = [b["w"] * b["h"] for b in bins]
+        if len(bin_areas) > 1 and min(bin_areas) != max(bin_areas):
+            bin_orders = [
+                bins,
+                sorted(bins, key=lambda b: b["w"] * b["h"], reverse=True),
+                sorted(bins, key=lambda b: b["w"] * b["h"]),
+            ]
+        else:
+            bin_orders = [bins]
 
     strategies = []
     for rotation in rotation_modes:
@@ -1178,16 +1192,22 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
     for s in slabs:
         for _ in range(int(s.get("quantity", 1))):
             bins.append({"name": s["name"], "w": s["width"], "h": s["height"],
-                         "holes": s.get("holes") or []})
+                         "holes": s.get("holes") or [],
+                         "priority": int(s.get("priority", 0))})
     bins.sort(key=lambda b: b["w"] * b["h"], reverse=True)
-    bin_areas = [b["w"] * b["h"] for b in bins]
-    if len(bin_areas) > 1 and min(bin_areas) != max(bin_areas):
-        bin_orders = [
-            bins,
-            sorted(bins, key=lambda b: b["w"] * b["h"]),
-        ]
+    if any(b.get("priority", 0) > 0 for b in bins):
+        bin_orders = [sorted(bins, key=lambda b: (
+            1 if b.get("priority", 0) <= 0 else 0,
+            b.get("priority", 0), -(b["w"] * b["h"])))]
     else:
-        bin_orders = [bins]
+        bin_areas = [b["w"] * b["h"] for b in bins]
+        if len(bin_areas) > 1 and min(bin_areas) != max(bin_areas):
+            bin_orders = [
+                bins,
+                sorted(bins, key=lambda b: b["w"] * b["h"]),
+            ]
+        else:
+            bin_orders = [bins]
 
     if not items:
         return {
