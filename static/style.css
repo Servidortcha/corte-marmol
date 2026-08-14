@@ -92,7 +92,7 @@ header p { margin: 2px 0 0; opacity: 0.75; font-size: 13px; }
 
 main {
   display: grid;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: 440px 1fr;
   gap: 20px;
   padding: 20px;
   align-items: start;
@@ -136,23 +136,50 @@ input, select {
 
 .item-line {
   display: grid;
-  grid-template-columns: 1fr 66px 66px 54px 44px 26px 26px;
+  grid-template-columns: 1fr 60px 60px 46px 24px 24px;
   gap: 3px;
   margin-bottom: 6px;
   align-items: center;
+}
+
+.item-line.with-prio {
+  grid-template-columns: 1fr 60px 60px 46px 40px 30px 24px 24px;
 }
 
 .item-line input { width: 100%; }
 
 .item-labels {
   display: grid;
-  grid-template-columns: 1fr 66px 66px 54px 44px 26px 26px;
+  grid-template-columns: 1fr 60px 60px 46px 24px 24px;
   gap: 3px;
   margin-bottom: 4px;
   color: #777;
   font-size: 10px;
   text-align: center;
 }
+
+.item-labels.prio {
+  grid-template-columns: 1fr 60px 60px 46px 40px 30px 24px 24px;
+}
+
+.arrows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.arrows button {
+  border: none;
+  background: #e9ecef;
+  color: #3a4046;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 9px;
+  line-height: 1.1;
+  padding: 1px 0;
+}
+
+.arrows button:hover { background: #d6dbe0; }
 
 .item-labels span:first-child { text-align: left; }
 

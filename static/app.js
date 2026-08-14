@@ -83,17 +83,47 @@ function collectEdgeDistances() {
   return out;
 }
 
-function itemLine(template, polygon, holes) {
+function renumberPriorities() {
+  const rows = [...document.querySelectorAll("#pieceRows .item-line")];
+  rows.forEach((row, index) => {
+    const prio = row.querySelector(".prio");
+    if (prio) prio.value = index + 1;
+  });
+}
+
+function itemLine(template, polygon, holes, withPriority = true) {
   const line = document.createElement("div");
-  line.className = "item-line";
+  line.className = "item-line" + (withPriority ? " with-prio" : "");
+  const prioCell = withPriority
+    ? `<input class="prio" type="number" placeholder="Prio" value="${template.priority || ""}" min="0" title="Prioridad: 1 primero">
+       <span class="arrows"><button class="up" title="Subir">&uarr;</button><button class="down" title="Bajar">&darr;</button></span>`
+    : "";
   line.innerHTML = `
     <input class="name" placeholder="Nombre" value="${escapeHtml(template.name)}">
     <input class="w" type="number" placeholder="Ancho" value="${template.width}">
     <input class="h" type="number" placeholder="Alto" value="${template.height}">
     <input class="qty" type="number" placeholder="Cant." value="${template.quantity}" min="1">
-    <input class="prio" type="number" placeholder="Prio" value="${template.priority || ""}" min="0" title="Prioridad de corte: 1 primero">
+    ${prioCell}
     <button class="del" title="Quitar">&times;</button>
     <button class="dup" title="Duplicar">&plus;</button>`;
+  if (withPriority) {
+    const up = line.querySelector(".up");
+    const down = line.querySelector(".down");
+    up.addEventListener("click", () => {
+      const prev = line.previousElementSibling;
+      if (prev) {
+        line.parentElement.insertBefore(line, prev);
+        renumberPriorities();
+      }
+    });
+    down.addEventListener("click", () => {
+      const next = line.nextElementSibling;
+      if (next) {
+        line.parentElement.insertBefore(next, line);
+        renumberPriorities();
+      }
+    });
+  }
   if (polygon) {
     line.dataset.polygon = JSON.stringify(polygon);
     line.dataset.holes = JSON.stringify(holes || []);
@@ -112,11 +142,13 @@ function itemLine(template, polygon, holes) {
   line.querySelector(".dup").addEventListener("click", () => {
     const parent = line.parentElement;
     const clone = itemLine(
-      { name: template.name, width: template.width, height: template.height, quantity: 1 },
+      { name: template.name, width: template.width, height: template.height, quantity: 1, priority: template.priority },
       polygon,
-      holes
+      holes,
+      withPriority
     );
     parent.insertBefore(clone, line.nextSibling);
+    renumberPriorities();
   });
   return line;
 }
@@ -136,7 +168,7 @@ function collectRows(container) {
       width: parseFloat(line.querySelector(".w").value) || 0,
       height: parseFloat(line.querySelector(".h").value) || 0,
       quantity: parseInt(line.querySelector(".qty").value, 10) || 1,
-      priority: parseInt(line.querySelector(".prio").value, 10) || 0,
+      priority: parseInt(line.querySelector(".prio")?.value, 10) || 0,
     };
     if (line.dataset.polygon) {
       row.polygon = JSON.parse(line.dataset.polygon);
@@ -232,7 +264,7 @@ function init() {
   document.getElementById("addPiece").addEventListener("click", () =>
     pieceRows.appendChild(itemLine({ name: "Pieza", width: 500, height: 500, quantity: 1 })));
   document.getElementById("addSlab").addEventListener("click", () =>
-    slabRows.appendChild(itemLine({ name: "Plancha", width: 3000, height: 1500, quantity: 1 })));
+    slabRows.appendChild(itemLine({ name: "Plancha", width: 3000, height: 1500, quantity: 1 }, undefined, undefined, false)));
 
   document.getElementById("optimizeBtn").addEventListener("click", optimize);
   document.getElementById("exportBtn").addEventListener("click", exportDxf);
@@ -351,7 +383,7 @@ async function loadJob(jobId) {
     pieceRows.innerHTML = "";
     slabRows.innerHTML = "";
     payload.pieces.forEach((piece) => pieceRows.appendChild(itemLine(piece, piece.polygon, piece.holes)));
-    payload.slabs.forEach((slab) => slabRows.appendChild(itemLine(slab)));
+    payload.slabs.forEach((slab) => slabRows.appendChild(itemLine(slab, undefined, undefined, false)));
     document.getElementById("kerf").value = payload.kerf ?? 0;
     document.getElementById("allowRotation").checked = payload.allow_rotation !== false;
     document.getElementById("intensive").checked = payload.intensive === true;
@@ -433,7 +465,7 @@ async function loadSlabDxf(event) {
         height: slab.height,
         quantity: 1,
         obstacles: slab.holes,
-      }));
+      }, undefined, undefined, false));
       ok += 1;
     } catch (err) {
       errors.push(`${file.name}: ${err.message}`);
