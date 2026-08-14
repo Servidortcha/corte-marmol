@@ -418,6 +418,36 @@ async function loadJob(jobId) {
   }
 }
 
+function detectPlanchasFromList() {
+  const pieceRowsEl = document.getElementById("pieceRows");
+  const slabRowsEl = document.getElementById("slabRows");
+  const rows = [...pieceRowsEl.querySelectorAll(".item-line")];
+  if (rows.length < 2) return 0;
+  const areas = rows.map((row) => {
+    const w = parseFloat(row.querySelector(".w").value) || 0;
+    const h = parseFloat(row.querySelector(".h").value) || 0;
+    return w * h;
+  });
+  const maxArea = Math.max(...areas);
+  if (maxArea <= 0) return 0;
+  const sorted = [...areas].sort((a, b) => b - a);
+  const second = sorted[1] || 0;
+  if (second <= 0 || maxArea < 5 * second) return 0;
+  const index = areas.indexOf(maxArea);
+  const row = rows[index];
+  const name = row.querySelector(".name").value.trim() || "Plancha";
+  const width = parseFloat(row.querySelector(".w").value) || 0;
+  const height = parseFloat(row.querySelector(".h").value) || 0;
+  let holes = [];
+  if (row.dataset.obstacles) holes = JSON.parse(row.dataset.obstacles);
+  else if (row.dataset.holes) holes = JSON.parse(row.dataset.holes);
+  row.remove();
+  slabRowsEl.appendChild(itemLine({
+    name, width, height, quantity: 1, obstacles: holes,
+  }, undefined, undefined, true));
+  return 1;
+}
+
 async function loadDxf(event) {
   const files = [...event.target.files];
   if (!files.length) return;
@@ -477,10 +507,11 @@ async function loadDxf(event) {
     totalArea += file.stats.total_area || 0;
   }
   renderEdgeDistances(collectRows(pieceRows));
+  const movedPlanchas = detectPlanchasFromList();
   const m2 = (totalArea / 1e6).toFixed(3);
   let message = `${parsedFiles.length} archivo(s) leído(s), ${piecesCount} piezas agregadas (${m2} m\u00b2 total).`;
-  if (planchasDetected) {
-    message += ` ${planchasDetected} archivo(s) detectado(s) como plancha (ver paso 3).`;
+  if (planchasDetected || movedPlanchas) {
+    message += ` ${planchasDetected + movedPlanchas} archivo(s) detectado(s) como plancha (ver paso 3).`;
   }
   if (errors.length) message += " Errores: " + errors.join(" | ");
   status.className = errors.length && !piecesCount ? "dxf-info error" : "dxf-info ok";
