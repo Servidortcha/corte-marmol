@@ -134,7 +134,7 @@ def build():
         "propiedades del archivo la opcion \"Desbloquear\" (Propiedades, "
         "General, Desbloquear).\n\n"
         "Version 1.0 - Aresa-Nest")
-    pdf.output("Guia_Instalacion_LaPuntualMarmoleria.pdf")
+    pdf.output("Guia_Instalacion_AresaNest.pdf")
     print("PDF generado")
 
 
