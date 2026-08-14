@@ -364,69 +364,84 @@ async function loadJob(jobId) {
 }
 
 async function loadDxf(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  const files = [...event.target.files];
+  if (!files.length) return;
   const status = document.getElementById("dxfInfo");
   status.hidden = false;
   status.className = "dxf-info";
-  status.textContent = "Leyendo DXF...";
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/dxf-parse", { method: "POST", body: fd });
-    if (!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-    if (!data.pieces.length) {
-      status.textContent = "No se encontraron piezas cerradas en el archivo.";
-      status.className = "dxf-info error";
-      return;
+  const pieceRows = document.getElementById("pieceRows");
+  let filesOk = 0;
+  let totalPieces = 0;
+  let totalArea = 0;
+  const errors = [];
+  for (const file of files) {
+    status.textContent = `Leyendo ${file.name}...`;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/dxf-parse", { method: "POST", body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      if (!data.pieces.length) {
+        errors.push(`${file.name}: no se encontraron piezas cerradas`);
+        continue;
+      }
+      data.pieces.forEach((p) =>
+        pieceRows.appendChild(itemLine(
+          { name: p.name, width: p.width, height: p.height, quantity: p.quantity || 1, lines: p.lines },
+          p.polygon, p.holes)));
+      Object.assign(layerColors, data.stats.layers_colors || {});
+      filesOk += 1;
+      totalPieces += data.pieces.length;
+      totalArea += data.stats.total_area || 0;
+    } catch (err) {
+      errors.push(`${file.name}: ${err.message}`);
     }
-    const pieceRows = document.getElementById("pieceRows");
-    pieceRows.innerHTML = "";
-    data.pieces.forEach((p) =>
-      pieceRows.appendChild(itemLine(
-        { name: p.name, width: p.width, height: p.height, quantity: p.quantity || 1, lines: p.lines },
-        p.polygon, p.holes)));
-    layerColors = data.stats.layers_colors || {};
-    renderEdgeDistances(data.pieces);
-    const m2 = (data.stats.total_area / 1e6).toFixed(3);
-    const quantity = data.stats.total_quantity || data.stats.piece_count;
-    status.className = "dxf-info ok";
-    status.textContent =
-      `${data.pieces.length} tipos detectados, ${quantity} unidades (${m2} m\u00b2 total). ` +
-      "Revis\u00e1 o modific\u00e1 las cantidades antes de optimizar.";
-  } catch (err) {
-    status.className = "dxf-info error";
-    status.textContent = "Error al leer el DXF: " + err.message;
   }
+  event.target.value = "";
+  renderEdgeDistances(collectRows(pieceRows));
+  const m2 = (totalArea / 1e6).toFixed(3);
+  let message = `${filesOk} archivo(s) leído(s), ${totalPieces} piezas agregadas (${m2} m\u00b2 total).`;
+  if (errors.length) message += " Errores: " + errors.join(" | ");
+  status.className = errors.length && !filesOk ? "dxf-info error" : "dxf-info ok";
+  status.textContent = message;
 }
 
 async function loadSlabDxf(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+  const files = [...event.target.files];
+  if (!files.length) return;
   const status = document.getElementById("slabDxfInfo");
   status.hidden = false;
-  status.textContent = "Leyendo chapa...";
-  try {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/slab-parse", { method: "POST", body: fd });
-    if (!res.ok) throw new Error(await res.text());
-    const slab = await res.json();
-    if (slab.error) throw new Error(slab.error);
-    document.getElementById("slabRows").appendChild(itemLine({
-      name: slab.name,
-      width: slab.width,
-      height: slab.height,
-      quantity: 1,
-      obstacles: slab.holes,
-    }));
-    status.className = "dxf-info ok";
-    status.textContent = `${fmt(slab.width)} \u00d7 ${fmt(slab.height)} mm, ${slab.hole_count} perforaci\u00f3n(es) interna(s).`;
-  } catch (err) {
-    status.className = "dxf-info error";
-    status.textContent = "Error al leer la chapa: " + err.message;
+  status.className = "dxf-info";
+  const slabRows = document.getElementById("slabRows");
+  let ok = 0;
+  const errors = [];
+  for (const file of files) {
+    status.textContent = `Leyendo chapa ${file.name}...`;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/slab-parse", { method: "POST", body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      const slab = await res.json();
+      if (slab.error) throw new Error(slab.error);
+      slabRows.appendChild(itemLine({
+        name: slab.name,
+        width: slab.width,
+        height: slab.height,
+        quantity: 1,
+        obstacles: slab.holes,
+      }));
+      ok += 1;
+    } catch (err) {
+      errors.push(`${file.name}: ${err.message}`);
+    }
   }
+  event.target.value = "";
+  let message = `${ok} chapa(s) agregada(s).`;
+  if (errors.length) message += " Errores: " + errors.join(" | ");
+  status.className = errors.length && !ok ? "dxf-info error" : "dxf-info ok";
+  status.textContent = message;
 }
 
 async function optimize() {
