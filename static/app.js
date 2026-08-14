@@ -425,9 +425,8 @@ async function loadDxf(event) {
   status.hidden = false;
   status.className = "dxf-info";
   const pieceRows = document.getElementById("pieceRows");
-  let filesOk = 0;
-  let totalPieces = 0;
-  let totalArea = 0;
+  const slabRows = document.getElementById("slabRows");
+  const parsedFiles = [];
   const errors = [];
   for (const file of files) {
     status.textContent = `Leyendo ${file.name}...`;
@@ -441,24 +440,50 @@ async function loadDxf(event) {
         errors.push(`${file.name}: no se encontraron piezas cerradas`);
         continue;
       }
-      data.pieces.forEach((p) =>
-        pieceRows.appendChild(itemLine(
-          { name: p.name, width: p.width, height: p.height, quantity: p.quantity || 1, lines: p.lines },
-          p.polygon, p.holes)));
-      Object.assign(layerColors, data.stats.layers_colors || {});
-      filesOk += 1;
-      totalPieces += data.pieces.length;
-      totalArea += data.stats.total_area || 0;
+      parsedFiles.push({ name: file.name, pieces: data.pieces, stats: data.stats });
     } catch (err) {
       errors.push(`${file.name}: ${err.message}`);
     }
   }
   event.target.value = "";
+
+  const allAreas = parsedFiles.flatMap((f) => f.pieces.map((p) => p.area || 0));
+  let piecesCount = 0;
+  let totalArea = 0;
+  let planchasDetected = 0;
+  for (const file of parsedFiles) {
+    const single = file.pieces.length === 1 ? file.pieces[0] : null;
+    const area = single ? (single.area || 0) : 0;
+    const othersMax = Math.max(0, ...allAreas.filter((a) => a !== area));
+    if (single && area > 0 && othersMax > 0 && area >= 5 * othersMax) {
+      const p = single;
+      const stem = (file.name.split(".")[0] || file.name).trim();
+      slabRows.appendChild(itemLine({
+        name: stem,
+        width: p.width,
+        height: p.height,
+        quantity: 1,
+        obstacles: p.holes,
+      }, undefined, undefined, true));
+      planchasDetected += 1;
+      continue;
+    }
+    file.pieces.forEach((p) =>
+      pieceRows.appendChild(itemLine(
+        { name: p.name, width: p.width, height: p.height, quantity: p.quantity || 1, lines: p.lines },
+        p.polygon, p.holes)));
+    Object.assign(layerColors, file.stats.layers_colors || {});
+    piecesCount += file.pieces.length;
+    totalArea += file.stats.total_area || 0;
+  }
   renderEdgeDistances(collectRows(pieceRows));
   const m2 = (totalArea / 1e6).toFixed(3);
-  let message = `${filesOk} archivo(s) leído(s), ${totalPieces} piezas agregadas (${m2} m\u00b2 total).`;
+  let message = `${parsedFiles.length} archivo(s) leído(s), ${piecesCount} piezas agregadas (${m2} m\u00b2 total).`;
+  if (planchasDetected) {
+    message += ` ${planchasDetected} archivo(s) detectado(s) como plancha (ver paso 3).`;
+  }
   if (errors.length) message += " Errores: " + errors.join(" | ");
-  status.className = errors.length && !filesOk ? "dxf-info error" : "dxf-info ok";
+  status.className = errors.length && !piecesCount ? "dxf-info error" : "dxf-info ok";
   status.textContent = message;
 }
 
