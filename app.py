@@ -99,6 +99,7 @@ def run_optimize(req: OptimizeRequest):
                 "holes": p.holes,
                 "quantity": p.quantity,
                 "priority": p.priority,
+                "allow_rotation": p.allow_rotation,
                 "lines": p.lines,
             }
             for p in req.pieces
@@ -118,7 +119,8 @@ def run_optimize(req: OptimizeRequest):
         return result
     pieces = [
         {"name": p.name, "width": p.width, "height": p.height,
-         "quantity": p.quantity, "priority": p.priority}
+         "quantity": p.quantity, "priority": p.priority,
+         "allow_rotation": p.allow_rotation}
         for p in req.pieces
     ]
     slabs = [

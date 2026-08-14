@@ -151,7 +151,7 @@ def _place_in_bin(bin_w, bin_h, kerf, allow_rotation, items, blocked=None,
     remaining = []
     for it in items:
         options = [(it["w"], it["h"], False)]
-        if allow_rotation:
+        if allow_rotation and not it.get("no_rotate"):
             options.append((it["h"], it["w"], True))
         best_pos = None
         best_w = best_h = None
@@ -209,7 +209,7 @@ def _maxrects_place_in_bin(bin_w, bin_h, kerf, allow_rotation, items):
 
     for item in items:
         options = [(item["w"], item["h"], False)]
-        if allow_rotation and item["w"] != item["h"]:
+        if allow_rotation and item["w"] != item["h"] and not item.get("no_rotate"):
             options.append((item["h"], item["w"], True))
         best = None
         for w, h, rotated in options:
@@ -263,7 +263,7 @@ def _guillotine_place_in_bin(bin_w, bin_h, kerf, allow_rotation, items):
 
     for item in items:
         options = [(item["w"], item["h"], False)]
-        if allow_rotation and item["w"] != item["h"]:
+        if allow_rotation and item["w"] != item["h"] and not item.get("no_rotate"):
             options.append((item["h"], item["w"], True))
         best = None
         best_shelf_idx = None
@@ -303,7 +303,7 @@ def _guillotine_place_polygons(bin_w, bin_h, kerf, allow_rotation, items, blocke
 
     for item in items:
         options = [_normalize_poly(item["collision"])]
-        if allow_rotation:
+        if allow_rotation and not item.get("no_rotate"):
             options.append(_normalize_poly(item["collision_rot"]))
         best = None
         for option_index, option in enumerate(options):
@@ -432,7 +432,7 @@ def _try_polygon_strategy(strategy):
             shape = it["collision"]
             shape = _normalize_poly(shape)
             options = [shape]
-            if rotation:
+            if rotation and not it.get("no_rotate"):
                 options.append(_normalize_poly(it["collision_rot"]))
             best_pos = None
             best_shape = None
@@ -515,7 +515,7 @@ def _fill_gaps(bin_w, bin_h, kerf, allow_rotation, placed, remaining,
     still_remaining = []
     for item in remaining:
         options = [(item["w"], item["h"], False)]
-        if allow_rotation and item["w"] != item["h"]:
+        if allow_rotation and item["w"] != item["h"] and not item.get("no_rotate"):
             options.append((item["h"], item["w"], True))
         best_pos = None
         best_w = best_h = None
@@ -605,7 +605,7 @@ def _fill_gaps_polygons(bin_w, bin_h, kerf, allow_rotation, placed_polys,
         if kerf:
             shape = shape.buffer(kerf / 2, join_style=2)
         options = [_normalize_poly(shape)]
-        if allow_rotation:
+        if allow_rotation and not item.get("no_rotate"):
             options.append(_normalize_poly(affinity.rotate(shape, 90, origin=(0, 0))))
         best_pos = None
         best_option = None
@@ -727,7 +727,8 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
     for p in pieces:
         for _ in range(int(p.get("quantity", 1))):
             items.append({"name": p["name"], "w": p["width"], "h": p["height"],
-                          "priority": int(p.get("priority", 0))})
+                          "priority": int(p.get("priority", 0)),
+                          "no_rotate": p.get("allow_rotation") is False})
 
     priority_map = {p["name"]: int(p.get("priority", 0)) for p in pieces}
 
@@ -1075,7 +1076,7 @@ def _maxrects_place_polygons(bin_w, bin_h, kerf, allow_rotation, items, blocked)
 
     for item in items:
         options = [_normalize_poly(item["collision"])]
-        if allow_rotation:
+        if allow_rotation and not item.get("no_rotate"):
             options.append(_normalize_poly(item["collision_rot"]))
         best = None
         for option_index, option in enumerate(options):
@@ -1180,6 +1181,7 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
                 "name": p["name"], "poly": poly, "area": poly.area,
                 "lines": lines,
                 "priority": int(p.get("priority", 0)),
+                "no_rotate": p.get("allow_rotation") is False,
                 "collision": collision,
                 "collision_rot": collision_rot,
                 "offset": (poly.bounds[0] - collision.bounds[0],

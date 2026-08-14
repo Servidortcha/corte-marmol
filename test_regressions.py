@@ -177,6 +177,22 @@ class RegressionTests(unittest.TestCase):
         self.assertEqual(len(result["slabs_used"]), 1)
         self.assertEqual(result["slabs_used"][0]["name"], "Blanco")
 
+    def test_piece_can_be_forbidden_from_rotating(self):
+        from core.packing import optimize
+
+        slab = [{"name": "Plancha", "width": 1200, "height": 800,
+                 "quantity": 1}]
+        pieza = {"name": "Larga", "width": 800, "height": 1200,
+                 "quantity": 1}
+
+        con_rotacion = optimize(
+            [dict(pieza, allow_rotation=True)], slab, kerf=0)
+        self.assertEqual(con_rotacion["pieces_placed"], 1)
+
+        sin_rotacion = optimize(
+            [dict(pieza, allow_rotation=False)], slab, kerf=0)
+        self.assertEqual(sin_rotacion["pieces_placed"], 0)
+
     def test_license_key_roundtrip(self):
         from core import licencia
 

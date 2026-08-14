@@ -93,15 +93,19 @@ function renumberPriorities() {
   });
 }
 
-function itemLine(template, polygon, holes) {
+function itemLine(template, polygon, holes, isSlab = false) {
   const line = document.createElement("div");
-  line.className = "item-line with-prio";
+  line.className = "item-line " + (isSlab ? "slab-line" : "piece-line");
+  const rotCell = isSlab
+    ? ""
+    : `<input type="checkbox" class="rot" title="Permite rotar esta pieza" ${template.allow_rotation === false ? "" : "checked"}>`;
   line.innerHTML = `
     <input class="name" placeholder="Nombre" value="${escapeHtml(template.name)}">
     <input class="w" type="number" placeholder="Ancho" value="${template.width}">
     <input class="h" type="number" placeholder="Alto" value="${template.height}">
     <input class="qty" type="number" placeholder="Cant." value="${template.quantity}" min="1">
     <input class="prio" type="number" placeholder="Prio" value="${template.priority || ""}" min="0" title="Prioridad: 1 primero">
+    ${rotCell}
     <span class="arrows"><button class="up" title="Subir">&uarr;</button><button class="down" title="Bajar">&darr;</button></span>
     <button class="del" title="Quitar">&times;</button>
     <button class="dup" title="Duplicar">&plus;</button>`;
@@ -139,9 +143,10 @@ function itemLine(template, polygon, holes) {
   line.querySelector(".dup").addEventListener("click", () => {
     const parent = line.parentElement;
     const clone = itemLine(
-      { name: template.name, width: template.width, height: template.height, quantity: 1, priority: template.priority },
+      { name: template.name, width: template.width, height: template.height, quantity: 1, priority: template.priority, allow_rotation: template.allow_rotation },
       polygon,
-      holes
+      holes,
+      isSlab
     );
     parent.insertBefore(clone, line.nextSibling);
     renumberPriorities();
@@ -166,6 +171,9 @@ function collectRows(container) {
       quantity: parseInt(line.querySelector(".qty").value, 10) || 1,
       priority: parseInt(line.querySelector(".prio")?.value, 10) || 0,
     };
+    if (!line.classList.contains("slab-line")) {
+      row.allow_rotation = line.querySelector(".rot").checked;
+    }
     if (line.dataset.polygon) {
       row.polygon = JSON.parse(line.dataset.polygon);
       if (line.dataset.holes) row.holes = JSON.parse(line.dataset.holes);
@@ -250,17 +258,39 @@ async function activateLicense() {
   }
 }
 
+let currentStep = 1;
+
+function setStep(step) {
+  currentStep = step;
+  document.querySelectorAll(".step-panel").forEach((panel) => {
+    panel.hidden = panel.id !== `step${step}`;
+  });
+  document.querySelectorAll(".step-btn").forEach((btn) => {
+    btn.classList.toggle("active", Number(btn.dataset.step) === step);
+  });
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function init() {
   const pieceRows = document.getElementById("pieceRows");
   const slabRows = document.getElementById("slabRows");
 
   defaultPieces().forEach((p) => pieceRows.appendChild(itemLine(p)));
-  defaultSlabs().forEach((s) => slabRows.appendChild(itemLine(s)));
+  defaultSlabs().forEach((s) => slabRows.appendChild(itemLine(s, undefined, undefined, true)));
+
+  document.querySelectorAll(".step-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setStep(Number(btn.dataset.step)));
+  });
+  document.getElementById("toStep2").addEventListener("click", () => setStep(2));
+  document.getElementById("backTo1").addEventListener("click", () => setStep(1));
+  document.getElementById("toStep3").addEventListener("click", () => setStep(3));
+  document.getElementById("backTo2").addEventListener("click", () => setStep(2));
+  document.getElementById("backTo3").addEventListener("click", () => setStep(3));
 
   document.getElementById("addPiece").addEventListener("click", () =>
     pieceRows.appendChild(itemLine({ name: "Pieza", width: 500, height: 500, quantity: 1 })));
   document.getElementById("addSlab").addEventListener("click", () =>
-    slabRows.appendChild(itemLine({ name: "Plancha", width: 3000, height: 1500, quantity: 1 })));
+    slabRows.appendChild(itemLine({ name: "Plancha", width: 3000, height: 1500, quantity: 1 }, undefined, undefined, true)));
 
   document.getElementById("optimizeBtn").addEventListener("click", optimize);
   document.getElementById("exportBtn").addEventListener("click", exportDxf);
@@ -290,21 +320,16 @@ function init() {
   });
   document.getElementById("clearDxf").addEventListener("click", () => {
     document.getElementById("pieceRows").innerHTML = "";
-    defaultPieces().forEach((p) => pieceRows.appendChild(itemLine(p)));
     document.getElementById("dxfInfo").hidden = true;
     document.getElementById("dxfFile").value = "";
+    layerColors = {};
+    renderEdgeDistances([]);
   });
-  document.getElementById("clearPieces").addEventListener("click", () => {
-    document.getElementById("pieceRows").innerHTML = "";
-  });
-  document.getElementById("clearSlabs").addEventListener("click", () => {
+  document.getElementById("clearSlabsManual").addEventListener("click", () => {
     document.getElementById("slabRows").innerHTML = "";
   });
   document.getElementById("resetDefaults").addEventListener("click", () => {
     document.getElementById("pieceRows").innerHTML = "";
-    document.getElementById("slabRows").innerHTML = "";
-    defaultPieces().forEach((p) => pieceRows.appendChild(itemLine(p)));
-    defaultSlabs().forEach((s) => slabRows.appendChild(itemLine(s)));
     document.getElementById("dxfInfo").hidden = true;
     document.getElementById("dxfFile").value = "";
     layerColors = {};
@@ -379,7 +404,7 @@ async function loadJob(jobId) {
     pieceRows.innerHTML = "";
     slabRows.innerHTML = "";
     payload.pieces.forEach((piece) => pieceRows.appendChild(itemLine(piece, piece.polygon, piece.holes)));
-    payload.slabs.forEach((slab) => slabRows.appendChild(itemLine(slab)));
+    payload.slabs.forEach((slab) => slabRows.appendChild(itemLine(slab, undefined, undefined, true)));
     document.getElementById("kerf").value = payload.kerf ?? 0;
     document.getElementById("allowRotation").checked = payload.allow_rotation !== false;
     document.getElementById("intensive").checked = payload.intensive === true;
@@ -461,7 +486,7 @@ async function loadSlabDxf(event) {
         height: slab.height,
         quantity: 1,
         obstacles: slab.holes,
-      }));
+      }, undefined, undefined, true));
       ok += 1;
     } catch (err) {
       errors.push(`${file.name}: ${err.message}`);
@@ -584,8 +609,8 @@ function fmt(n) {
 }
 
 function renderResults(data) {
-  const results = document.getElementById("results");
-  results.hidden = false;
+  const results = document.getElementById("step4");
+  setStep(4);
 
   const validation = document.getElementById("validation");
   if (data.validation && !data.validation.valid) {

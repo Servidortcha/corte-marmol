@@ -19,6 +19,13 @@
     </div>
   </header>
 
+  <nav class="steps-bar">
+    <button class="step-btn active" data-step="1">1. Insertar archivos</button>
+    <button class="step-btn" data-step="2">2. Preparar piezas</button>
+    <button class="step-btn" data-step="3">3. Preparar plancha</button>
+    <button class="step-btn" data-step="4">4. Resultado final</button>
+  </nav>
+
   <main>
     <div id="licenseOverlay" class="license-overlay" hidden>
       <div class="license-card">
@@ -32,43 +39,76 @@
       </div>
     </div>
 
-    <section class="panel">
-      <h2>Cargar DXF (uno o varios)</h2>
+    <!-- PASO 1: ARCHIVOS -->
+    <section class="panel step-panel" id="step1">
+      <h2>Insertar archivos</h2>
+      <p class="step-hint">Seleccioná los DXF de las piezas (uno o varios) y, si corresponde, el DXF de la plancha con sus perforaciones.</p>
+
+      <h3>Piezas a cortar</h3>
       <input type="file" id="dxfFile" accept=".dxf" multiple>
       <div id="dxfInfo" class="dxf-info" hidden></div>
-      <button id="clearDxf" class="btn secondary">Limpiar piezas del DXF</button>
+      <button id="clearDxf" class="btn secondary">Limpiar piezas cargadas</button>
 
-      <h2>Piezas a cortar</h2>
-      <div class="item-labels prio"><span>Nombre</span><span>Ancho</span><span>Alto</span><span>Cant.</span><span>Prio</span><span></span><span></span><span></span></div>
+      <h3>Plancha (DXF con perforaciones, opcional)</h3>
+      <input type="file" id="slabDxfFile" accept=".dxf" multiple>
+      <div id="slabDxfInfo" class="dxf-info" hidden></div>
+      <button id="clearSlabs" class="btn secondary">Limpiar planchas cargadas</button>
+
+      <div class="nav-buttons">
+        <button id="toStep2" class="btn primary next-btn">Siguiente: preparar piezas →</button>
+      </div>
+    </section>
+
+    <!-- PASO 2: PIEZAS -->
+    <section class="panel step-panel" id="step2" hidden>
+      <h2>Preparar piezas para el corte</h2>
+      <p class="step-hint">Revisá cantidades, prioridad (orden de corte con las flechas) y si la pieza puede rotar o no.</p>
+
+      <label class="row">
+        <span>Permitir rotar piezas (opción general)</span>
+        <input type="checkbox" id="allowRotation" checked>
+      </label>
+
+      <div class="item-labels piece-labels">
+        <span>Nombre</span><span>Ancho</span><span>Alto</span><span>Cant.</span><span>Prio</span><span>Rot</span><span></span><span></span><span></span>
+      </div>
       <div id="pieceRows"></div>
       <div class="btn-row">
         <button id="addPiece" class="btn secondary">+ Agregar pieza</button>
-        <button id="clearPieces" class="btn secondary">Limpiar piezas</button>
+        <button id="resetDefaults" class="btn secondary">Vaciar lista</button>
       </div>
 
-      <h2>Planchas disponibles</h2>
-      <input type="file" id="slabDxfFile" accept=".dxf" multiple>
-      <div id="slabDxfInfo" class="dxf-info" hidden></div>
-      <div class="item-labels prio"><span>Nombre</span><span>Ancho</span><span>Alto</span><span>Cant.</span><span>Prio</span><span></span><span></span><span></span></div>
+      <h3>Separación por color de línea</h3>
+      <div id="edgeDistanceHint" class="dxf-info" hidden>
+        Cargá un DXF para configurar la separación de cada color de línea.
+      </div>
+      <div id="edgeDistanceRows" class="edge-distances"></div>
+
+      <div class="nav-buttons">
+        <button id="backTo1" class="btn secondary">← Volver</button>
+        <button id="toStep3" class="btn primary next-btn">Siguiente: preparar plancha →</button>
+      </div>
+    </section>
+
+    <!-- PASO 3: PLANCHAS -->
+    <section class="panel step-panel" id="step3" hidden>
+      <h2>Preparar plancha</h2>
+      <p class="step-hint">Definí las planchas disponibles, el ancho de hoja y ejecutá la optimización.</p>
+
+      <h3>Planchas disponibles</h3>
+      <div class="item-labels">
+        <span>Nombre</span><span>Ancho</span><span>Alto</span><span>Cant.</span><span>Prio</span><span></span><span></span><span></span>
+      </div>
       <div id="slabRows"></div>
       <div class="btn-row">
         <button id="addSlab" class="btn secondary">+ Agregar plancha</button>
-        <button id="clearSlabs" class="btn secondary">Limpiar planchas</button>
+        <button id="clearSlabsManual" class="btn secondary">Limpiar planchas</button>
       </div>
-      <button id="resetDefaults" class="btn secondary" style="width:100%; margin-top:4px;">Restaurar valores por defecto</button>
 
-      <h2>Parámetros</h2>
+      <h3>Parámetros</h3>
       <label class="row">
         <span>Ancho de hoja de sierra (mm)</span>
         <input type="number" id="kerf" value="4" min="0" step="0.5">
-      </label>
-      <label class="row">
-        <span>Permitir rotar piezas</span>
-        <input type="checkbox" id="allowRotation" checked>
-      </label>
-      <label class="row">
-        <span>Optimización intensiva (más lenta, mejor resultado)</span>
-        <input type="checkbox" id="intensive">
       </label>
       <label class="row">
         <span>Unidades de visualización</span>
@@ -77,26 +117,29 @@
           <option value="cm">cm</option>
         </select>
       </label>
-
-      <h2>Separación por color de línea</h2>
-      <div id="edgeDistanceHint" class="dxf-info" hidden>
-        Cargá un DXF para configurar la separación de cada color de línea.
-      </div>
-      <div id="edgeDistanceRows" class="edge-distances"></div>
+      <label class="row">
+        <span>Optimización intensiva (más lenta, mejor resultado)</span>
+        <input type="checkbox" id="intensive">
+      </label>
 
       <button id="optimizeBtn" class="btn primary">Optimizar corte</button>
       <div id="optimizeStatus" class="dxf-info" hidden></div>
 
-      <h2>Trabajos guardados</h2>
+      <h3>Trabajos guardados</h3>
       <div class="job-actions">
         <input id="jobName" placeholder="Nombre del trabajo">
         <button id="saveJobBtn" class="btn secondary">Guardar trabajo</button>
         <select id="jobSelect"><option value="">Cargar trabajo...</option></select>
       </div>
+
+      <div class="nav-buttons">
+        <button id="backTo2" class="btn secondary">← Volver</button>
+      </div>
     </section>
 
-    <section class="panel results" id="results" hidden>
-      <h2>Resultado</h2>
+    <!-- PASO 4: RESULTADO -->
+    <section class="panel step-panel results" id="step4" hidden>
+      <h2>Resultado final</h2>
       <div id="validation" class="validation" hidden></div>
       <div id="unplacedAlert" class="unplaced-alert" hidden></div>
       <div id="summary"></div>
@@ -104,9 +147,12 @@
       <div id="slabs"></div>
       <div id="scraps" class="scraps" hidden></div>
       <div id="unplaced"></div>
+      <div class="nav-buttons">
+        <button id="backTo3" class="btn secondary">← Volver</button>
+      </div>
     </section>
   </main>
 
-  <script src="/static/app.js?v=13"></script>
+  <script src="/static/app.js?v=14"></script>
 </body>
 </html>

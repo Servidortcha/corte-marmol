@@ -8,6 +8,8 @@ class PieceIn(BaseModel):
     quantity: int = Field(1, ge=1)
     priority: int = Field(
         0, ge=0, description="Prioridad de corte: 1 primero, 2 despues... 0 = sin prioridad")
+    allow_rotation: bool | None = Field(
+        None, description="Permite rotar esta pieza. None = usar la opcion general")
     polygon: list[list[float]] | None = Field(
         None, description="Forma libre como lista de puntos [x, y] (opcional)")
     holes: list[list[list[float]]] | None = Field(
