@@ -14,12 +14,12 @@ VSVersionInfo(
       StringTable(
         u'040904B0',
         [
-          StringStruct(u'CompanyName', u'La Puntual Marmoleria'),
-          StringStruct(u'FileDescription', u'Optimizacion de corte de marmol en planchas'),
+          StringStruct(u'CompanyName', u'Aresa'),
+          StringStruct(u'FileDescription', u'Aresa-Nest: optimizacion de corte de marmol en planchas'),
           StringStruct(u'FileVersion', u'1.0.0'),
-          StringStruct(u'InternalName', u'LaPuntualMarmoleria'),
-          StringStruct(u'OriginalFilename', u'LaPuntualMarmoleria.exe'),
-          StringStruct(u'ProductName', u'La Puntual Marmoleria'),
+          StringStruct(u'InternalName', u'AresaNest'),
+          StringStruct(u'OriginalFilename', u'Aresa-Nest.exe'),
+          StringStruct(u'ProductName', u'Aresa-Nest'),
           StringStruct(u'ProductVersion', u'1.0.0')
         ]
       )

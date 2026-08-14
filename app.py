@@ -39,7 +39,7 @@ def _require_licencia():
         )
     return estado
 
-app = FastAPI(title="La Puntual Marmolería",
+app = FastAPI(title="Aresa-Nest",
               description="Optimización de corte de mármol en planchas")
 init_db()
 

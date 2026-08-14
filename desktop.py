@@ -38,7 +38,7 @@ def main():
     server.start()
     time.sleep(1.5)
     webview.create_window(
-        "La Puntual Marmolería",
+        "Aresa-Nest",
         f"http://127.0.0.1:{port}",
         width=1280,
         height=820,

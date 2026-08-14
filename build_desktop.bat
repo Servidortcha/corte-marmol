@@ -1,5 +1,5 @@
 @echo off
-rem Compila la app de escritorio en un .exe (LaPuntualMarmoleria.exe)
+rem Compila la app de escritorio en un .exe (AresaNest.exe)
 cd /d "%~dp0"
 
 if not exist ".venv\Scripts\pyinstaller.exe" (
@@ -8,7 +8,7 @@ if not exist ".venv\Scripts\pyinstaller.exe" (
 )
 
 ".venv\Scripts\python.exe" -m PyInstaller --noconfirm --clean --onefile --windowed ^
-    --name "LaPuntualMarmoleria" ^
+    --name "AresaNest" ^
     --icon "static\icono.ico" ^
     --version-file "version_info.txt" ^
     --add-data "static;static" ^
@@ -24,5 +24,5 @@ if not exist ".venv\Scripts\pyinstaller.exe" (
     desktop.py
 
 echo.
-echo Listo: dist\LaPuntualMarmoleria.exe
+echo Listo: dist\AresaNest.exe
 pause

@@ -19,11 +19,11 @@ def build():
     pdf.add_page()
     pdf.set_fill_color(58, 64, 70)
     pdf.rect(0, 0, 210, 42, "F")
-    pdf.image("static/logo.jpg", x=14, y=8, w=26)
+    pdf.image("static/logo.png", x=14, y=8, w=26)
     pdf.set_font("Arial", "B", 20)
     pdf.set_text_color(244, 245, 246)
     pdf.set_xy(45, 12)
-    mc(pdf, 150, 10, "La Puntual Marmoleria")
+    mc(pdf, 150, 10, "Aresa-Nest")
     pdf.set_font("Arial", "", 12)
     pdf.set_xy(45, 24)
     mc(pdf, 150, 8, "Optimizacion de corte de marmol en planchas")
@@ -133,7 +133,7 @@ def build():
         "Si el programa no abre por el bloqueo de Windows, desmarcar en las "
         "propiedades del archivo la opcion \"Desbloquear\" (Propiedades, "
         "General, Desbloquear).\n\n"
-        "Version 1.0 - La Puntual Marmoleria")
+        "Version 1.0 - Aresa-Nest")
     pdf.output("Guia_Instalacion_LaPuntualMarmoleria.pdf")
     print("PDF generado")
 
