@@ -125,10 +125,7 @@ function defaultPieces() {
 }
 
 function defaultSlabs() {
-  return [
-    { name: "Blanco", width: 3200, height: 1600, quantity: 1 },
-    { name: "Gris", width: 2800, height: 1400, quantity: 1 },
-  ];
+  return [];
 }
 
 function collectRows(container) {
