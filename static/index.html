@@ -14,10 +14,22 @@
         <h1>La Puntual Marmolería</h1>
         <p>Optimización de corte de mármol en planchas</p>
       </div>
+      <span id="licenseBadge" class="license-badge" hidden></span>
     </div>
   </header>
 
   <main>
+    <div id="licenseOverlay" class="license-overlay" hidden>
+      <div class="license-card">
+        <img src="/static/logo.jpg" alt="La Puntual Marmolería" class="logo">
+        <h2>Licencia vencida</h2>
+        <p id="licenseMessage">El período de prueba terminó. Ingresá tu clave de activación para seguir usando la aplicación.</p>
+        <input id="licenseKey" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
+        <button id="licenseActivateBtn" class="btn primary">Activar licencia</button>
+        <div id="licenseError" class="dxf-info error" hidden></div>
+      </div>
+    </div>
+
     <section class="panel">
       <h2>Cargar DXF</h2>
       <input type="file" id="dxfFile" accept=".dxf">
@@ -92,6 +104,6 @@
     </section>
   </main>
 
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=8"></script>
 </body>
 </html>

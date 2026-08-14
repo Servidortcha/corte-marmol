@@ -71,3 +71,7 @@ class JobIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     payload: dict
     job_id: int | None = Field(None, gt=0)
+
+
+class LicenseIn(BaseModel):
+    key: str = Field(min_length=4, max_length=120)

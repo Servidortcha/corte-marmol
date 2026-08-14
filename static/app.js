@@ -146,6 +146,63 @@ function collectRows(container) {
   });
 }
 
+async function checkLicense() {
+  const overlay = document.getElementById("licenseOverlay");
+  const badge = document.getElementById("licenseBadge");
+  try {
+    const res = await fetch("/api/license/status");
+    if (!res.ok) return;
+    const estado = await res.json();
+    if (estado.status === "licensed") {
+      overlay.hidden = true;
+      badge.hidden = false;
+      badge.textContent = `Licencia: ${estado.licensed_to}`;
+      badge.className = "license-badge ok";
+    } else if (estado.status === "trial") {
+      overlay.hidden = true;
+      badge.hidden = false;
+      badge.textContent = `Prueba: ${estado.days_left} día(s) restante(s)`;
+      badge.className = "license-badge trial";
+    } else {
+      overlay.hidden = false;
+      badge.hidden = true;
+      document.getElementById("licenseMessage").textContent =
+        estado.reason || "El período de prueba terminó.";
+    }
+  } catch (_) {
+    // Si no responde el estado, se deja pasar (modo local).
+  }
+}
+
+async function activateLicense() {
+  const key = document.getElementById("licenseKey").value.trim();
+  const error = document.getElementById("licenseError");
+  if (!key) {
+    error.hidden = false;
+    error.textContent = "Ingresá la clave de licencia.";
+    return;
+  }
+  try {
+    const res = await fetch("/api/license/activate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      error.hidden = true;
+      checkLicense();
+      alert(data.message);
+    } else {
+      error.hidden = false;
+      error.textContent = data.message;
+    }
+  } catch (err) {
+    error.hidden = false;
+    error.textContent = "Error: " + err.message;
+  }
+}
+
 function init() {
   const pieceRows = document.getElementById("pieceRows");
   const slabRows = document.getElementById("slabRows");
@@ -160,6 +217,10 @@ function init() {
 
   document.getElementById("optimizeBtn").addEventListener("click", optimize);
   document.getElementById("exportBtn").addEventListener("click", exportDxf);
+  document.getElementById("licenseActivateBtn").addEventListener("click", activateLicense);
+  document.getElementById("licenseKey").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") activateLicense();
+  });
   document.getElementById("units").addEventListener("change", (event) => {
     units = event.target.value;
     if (lastResult) renderResults(lastResult);
@@ -194,6 +255,7 @@ function init() {
   });
 
   refreshJobs();
+  checkLicense();
 }
 
 function currentPayload() {

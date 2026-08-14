@@ -104,6 +104,24 @@ def build():
 
     pdf.ln(2)
     pdf.set_font("Arial", "B", 13)
+    mc(pdf, 0, 8, "Licencia y periodo de prueba")
+    pdf.set_font("Arial", "", 11)
+    mc(pdf, 0, 6,
+        "La aplicacion incluye un periodo de prueba gratuito de 30 dias desde "
+        "la primera ejecucion. El tiempo restante se muestra en la esquina "
+        "superior derecha de la ventana.\n\n"
+        "Cuando la prueba termina, la aplicacion pide una clave de activacion. "
+        "Para obtenerla, comunicarse con el proveedor, indicando el nombre con "
+        "el que se quiere registrar la licencia.\n\n"
+        "Como activar:\n"
+        "1. Copiar la clave recibida (formato XXXX-XXXX-XXXX-XXXX).\n"
+        "2. Pegarla en el campo de la pantalla de licencia.\n"
+        "3. Pulsar \"Activar licencia\".\n\n"
+        "La clave queda guardada junto a la aplicacion: solo funciona en esa "
+        "computadora con esa instalacion.")
+
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", 13)
     mc(pdf, 0, 8, "Notas")
     pdf.set_font("Arial", "", 11)
     mc(pdf, 0, 6,

@@ -11,7 +11,9 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from core.dxf_io import export_result_dxf, parse_dxf_bytes
-from core.models import ExportRequest, JobIn, OptimizeRequest
+from core.licencia import activate as licencia_activate
+from core.licencia import status as licencia_status
+from core.models import ExportRequest, JobIn, LicenseIn, OptimizeRequest
 from core.packing import optimize, optimize_polygons, validate_result
 from core.storage import get_job, init_db, list_jobs, save_job
 
@@ -23,6 +25,19 @@ def _resource_path(name):
 
 
 STATIC_DIR = _resource_path("static")
+
+
+def _require_licencia():
+    estado = licencia_status()
+    if estado["status"] == "expired":
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "La licencia de prueba vencio. Ingresa una clave de "
+                "activacion en la app o solicitala al proveedor."
+            ),
+        )
+    return estado
 
 app = FastAPI(title="La Puntual Marmolería",
               description="Optimización de corte de mármol en planchas")
@@ -40,8 +55,20 @@ def _run_optimize_job(job_id: str, req_dict: dict):
         _JOBS[job_id] = {"status": "error", "error": str(exc)}
 
 
+@app.get("/api/license/status")
+def license_status():
+    return licencia_status()
+
+
+@app.post("/api/license/activate")
+def license_activate(req: LicenseIn):
+    ok, message = licencia_activate(req.key)
+    return {"ok": ok, "message": message, "status": licencia_status()}
+
+
 @app.post("/api/optimize-async")
 def optimize_async(req: OptimizeRequest):
+    _require_licencia()
     job_id = uuid.uuid4().hex
     _JOBS[job_id] = {"status": "running", "started": time.time()}
     thread = threading.Thread(
@@ -61,6 +88,7 @@ def optimize_status(job_id: str):
 
 @app.post("/api/optimize")
 def run_optimize(req: OptimizeRequest):
+    _require_licencia()
     has_polygons = any(p.polygon for p in req.pieces)
     if has_polygons:
         polygon_pieces = [
@@ -104,12 +132,14 @@ def run_optimize(req: OptimizeRequest):
 
 @app.post("/api/dxf-parse")
 async def dxf_parse(file: UploadFile):
+    _require_licencia()
     data = await file.read()
     return parse_dxf_bytes(data)
 
 
 @app.post("/api/slab-parse")
 async def slab_parse(file: UploadFile):
+    _require_licencia()
     data = await file.read()
     parsed = parse_dxf_bytes(data)
     if not parsed["pieces"]:
@@ -132,6 +162,7 @@ async def slab_parse(file: UploadFile):
 
 @app.post("/api/export-dxf")
 def dxf_export(req: ExportRequest):
+    _require_licencia()
     slabs = [s.model_dump() for s in req.slabs_used]
     if len(slabs) > 1:
         archive = io.BytesIO()

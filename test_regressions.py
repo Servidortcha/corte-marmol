@@ -135,6 +135,40 @@ class RegressionTests(unittest.TestCase):
         ]
         self.assertGreaterEqual(geometries[0].distance(geometries[1]), 9.9)
 
+    def test_license_key_roundtrip(self):
+        from core import licencia
+
+        key = licencia.generate_key("Taller Prueba", days=30)
+        info = licencia.validate_key(key)
+        self.assertIsNotNone(info)
+        self.assertEqual(info["name"], "Taller Prueba")
+        tampered = key[:-4] + "AAAA"
+        self.assertIsNone(licencia.validate_key(tampered))
+
+    def test_trial_and_activation(self):
+        import os
+        import tempfile
+
+        from core import licencia
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "licencia.json")
+            os.environ["CORTE_LICENCIA_PATH"] = path
+            try:
+                licencia.reset_trial()
+                estado = licencia.status()
+                self.assertEqual(estado["status"], "trial")
+                self.assertGreater(estado["days_left"], 0)
+                key = licencia.generate_key("Cliente X", days=30)
+                ok, _ = licencia.activate(key)
+                self.assertTrue(ok)
+                estado = licencia.status()
+                self.assertEqual(estado["status"], "licensed")
+                self.assertEqual(estado["licensed_to"], "Cliente X")
+                self.assertFalse(licencia.activate("AAAA-BBBB-CCCC-DDDD")[0])
+            finally:
+                os.environ.pop("CORTE_LICENCIA_PATH", None)
+
     def test_pieces_do_not_enter_another_piece_holes(self):
         request = OptimizeRequest(
             pieces=[
