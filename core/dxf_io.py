@@ -154,6 +154,21 @@ def _polygons_with_holes(loops, scale):
     return out
 
 
+def _slab_holes_from_polygon(poly):
+    """Huecos de una plancha: anillos interiores + zonas cóncavas faltantes
+    del rectángulo envolvente (p.ej. retazos en forma de L)."""
+    holes = [sg.Polygon(ring) for ring in poly.interiors]
+    bbox = sg.box(*poly.bounds)
+    missing = bbox.difference(poly)
+    if missing.is_empty:
+        return holes
+    parts = missing.geoms if missing.geom_type == "MultiPolygon" else [missing]
+    for part in parts:
+        if part.geom_type == "Polygon" and part.area > 1.0:
+            holes.append(part)
+    return holes
+
+
 def parse_dxf_bytes(data: bytes, name_hint: str | None = None):
     """Parsea un DXF. Si name_hint trae el nombre del archivo y hay una sola
     pieza, esa pieza se nombra con el archivo (sin extension)."""

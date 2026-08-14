@@ -418,9 +418,30 @@ async function loadJob(jobId) {
   }
 }
 
-function detectPlanchasFromList() {
+async function planchaFromPiece(name, polygon, holes) {
+  const res = await fetch("/api/plancha-parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, polygon, holes: holes || [] }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function addPlanchaRow(name, polygon, holes) {
+  const slab = await planchaFromPiece(name, polygon, holes);
+  document.getElementById("slabRows").appendChild(itemLine({
+    name: slab.name,
+    width: slab.width,
+    height: slab.height,
+    quantity: 1,
+    obstacles: slab.holes,
+  }, undefined, undefined, true));
+  return slab;
+}
+
+async function detectPlanchasFromList() {
   const pieceRowsEl = document.getElementById("pieceRows");
-  const slabRowsEl = document.getElementById("slabRows");
   const rows = [...pieceRowsEl.querySelectorAll(".item-line")];
   if (rows.length < 2) return 0;
   const areas = rows.map((row) => {
@@ -436,16 +457,18 @@ function detectPlanchasFromList() {
   const index = areas.indexOf(maxArea);
   const row = rows[index];
   const name = row.querySelector(".name").value.trim() || "Plancha";
-  const width = parseFloat(row.querySelector(".w").value) || 0;
-  const height = parseFloat(row.querySelector(".h").value) || 0;
-  let holes = [];
-  if (row.dataset.obstacles) holes = JSON.parse(row.dataset.obstacles);
-  else if (row.dataset.holes) holes = JSON.parse(row.dataset.holes);
+  const polygon = row.dataset.polygon ? JSON.parse(row.dataset.polygon) : null;
+  const holes = row.dataset.obstacles
+    ? JSON.parse(row.dataset.obstacles)
+    : (row.dataset.holes ? JSON.parse(row.dataset.holes) : []);
+  if (!polygon) return 0;
   row.remove();
-  slabRowsEl.appendChild(itemLine({
-    name, width, height, quantity: 1, obstacles: holes,
-  }, undefined, undefined, true));
-  return 1;
+  try {
+    await addPlanchaRow(name, polygon, holes);
+    return 1;
+  } catch (_) {
+    return 0;
+  }
 }
 
 async function loadDxf(event) {
@@ -486,16 +509,17 @@ async function loadDxf(event) {
     const area = single ? (single.area || 0) : 0;
     const othersMax = Math.max(0, ...allAreas.filter((a) => a !== area));
     if (single && area > 0 && othersMax > 0 && area >= 5 * othersMax) {
-      const p = single;
       const stem = (file.name.split(".")[0] || file.name).trim();
-      slabRows.appendChild(itemLine({
-        name: stem,
-        width: p.width,
-        height: p.height,
-        quantity: 1,
-        obstacles: p.holes,
-      }, undefined, undefined, true));
-      planchasDetected += 1;
+      try {
+        await addPlanchaRow(stem, single.polygon, single.holes);
+        planchasDetected += 1;
+      } catch (_) {
+        file.pieces.forEach((p) =>
+          pieceRows.appendChild(itemLine(
+            { name: p.name, width: p.width, height: p.height, quantity: p.quantity || 1, lines: p.lines },
+            p.polygon, p.holes)));
+        piecesCount += file.pieces.length;
+      }
       continue;
     }
     file.pieces.forEach((p) =>
@@ -507,7 +531,7 @@ async function loadDxf(event) {
     totalArea += file.stats.total_area || 0;
   }
   renderEdgeDistances(collectRows(pieceRows));
-  const movedPlanchas = detectPlanchasFromList();
+  const movedPlanchas = await detectPlanchasFromList();
   const m2 = (totalArea / 1e6).toFixed(3);
   let message = `${parsedFiles.length} archivo(s) leído(s), ${piecesCount} piezas agregadas (${m2} m\u00b2 total).`;
   if (planchasDetected || movedPlanchas) {

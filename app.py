@@ -10,10 +10,16 @@ from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from core.dxf_io import export_result_dxf, parse_dxf_bytes
+from core.dxf_io import _slab_holes_from_polygon, export_result_dxf, parse_dxf_bytes
 from core.licencia import activate as licencia_activate
 from core.licencia import status as licencia_status
-from core.models import ExportRequest, JobIn, LicenseIn, OptimizeRequest
+from core.models import (
+    ExportRequest,
+    JobIn,
+    LicenseIn,
+    OptimizeRequest,
+    PlanchaIn,
+)
 from core.packing import optimize, optimize_polygons, validate_result
 from core.storage import export_dir, get_job, init_db, list_jobs, save_job
 
@@ -151,18 +157,33 @@ async def slab_parse(file: UploadFile):
     if not parsed["pieces"]:
         return {"error": "No se encontraron contornos cerrados."}
     outer = max(parsed["pieces"], key=lambda piece: piece["area"])
-    minx = min(point[0] for point in outer["polygon"])
-    miny = min(point[1] for point in outer["polygon"])
-    holes = [
-        [[round(x - minx, 3), round(y - miny, 3)] for x, y in ring]
-        for ring in outer.get("holes") or []
+    name = (file.filename or "").rsplit(".", 1)[0] or outer["name"]
+    return _plancha_json(name, outer["polygon"], outer.get("holes") or [])
+
+
+@app.post("/api/plancha-parse")
+def plancha_parse(req: PlanchaIn):
+    _require_licencia()
+    return _plancha_json(req.name, req.polygon, req.holes or [])
+
+
+def _plancha_json(name, polygon, holes):
+    import shapely.geometry as sg
+
+    poly = sg.Polygon(polygon, holes)
+    minx, miny, maxx, maxy = poly.bounds
+    all_holes = _slab_holes_from_polygon(poly)
+    normalized = [
+        [[round(x - minx, 3), round(y - miny, 3)]
+         for x, y in ring.exterior.coords[:-1]]
+        for ring in all_holes
     ]
     return {
-        "name": file.filename or "Chapa DXF",
-        "width": outer["width"],
-        "height": outer["height"],
-        "holes": holes,
-        "hole_count": len(holes),
+        "name": name or "Plancha",
+        "width": round(maxx - minx, 3),
+        "height": round(maxy - miny, 3),
+        "holes": normalized,
+        "hole_count": len(normalized),
     }
 
 

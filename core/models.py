@@ -81,3 +81,9 @@ class JobIn(BaseModel):
 
 class LicenseIn(BaseModel):
     key: str = Field(min_length=4, max_length=120)
+
+
+class PlanchaIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    polygon: list[list[float]]
+    holes: list[list[list[float]]] | None = None
