@@ -42,17 +42,12 @@
     <!-- PASO 1: ARCHIVOS -->
     <section class="panel step-panel" id="step1">
       <h2>Insertar archivos</h2>
-      <p class="step-hint">Seleccioná los DXF de las piezas (uno o varios) y, si corresponde, el DXF de la plancha con sus perforaciones.</p>
+      <p class="step-hint">Seleccioná los DXF de las piezas (uno o varios).</p>
 
       <h3>Piezas a cortar</h3>
       <input type="file" id="dxfFile" accept=".dxf" multiple>
       <div id="dxfInfo" class="dxf-info" hidden></div>
       <button id="clearDxf" class="btn secondary">Limpiar piezas cargadas</button>
-
-      <h3>Plancha (DXF con perforaciones, opcional)</h3>
-      <input type="file" id="slabDxfFile" accept=".dxf" multiple>
-      <div id="slabDxfInfo" class="dxf-info" hidden></div>
-      <button id="clearSlabs" class="btn secondary">Limpiar planchas cargadas</button>
 
       <div class="nav-buttons">
         <button id="toStep2" class="btn primary next-btn">Siguiente: preparar piezas →</button>
@@ -104,6 +99,10 @@
         <button id="addSlab" class="btn secondary">+ Agregar plancha</button>
         <button id="clearSlabsManual" class="btn secondary">Limpiar planchas</button>
       </div>
+
+      <h3>Cargar plancha desde DXF (con perforaciones, opcional)</h3>
+      <input type="file" id="slabDxfFile" accept=".dxf" multiple>
+      <div id="slabDxfInfo" class="dxf-info" hidden></div>
 
       <h3>Parámetros</h3>
       <label class="row">
