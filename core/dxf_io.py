@@ -67,8 +67,9 @@ def _contains(outer, inner):
 def _stitch_loops(segments, tol=0.5):
     """Cose segmentos en contornos cerrados conservando la capa de cada borde.
 
-    Devuelve tuplas (layer, pts, edge_layers) donde edge_layers[i] es la capa
-    del borde entre pts[i] y pts[(i+1) % len(pts)].
+    Devuelve (loops, open_chains): loops son tuplas (layer, pts, edge_layers)
+    con edge_layers[i] = capa del borde entre pts[i] y pts[(i+1) % len(pts)];
+    open_chains son las cadenas que no cierran (trazos sueltos, p.ej. letras).
     """
     edges = []
     for layer, seg in segments:
@@ -76,6 +77,7 @@ def _stitch_loops(segments, tol=0.5):
             if _pt_dist(a, b) > tol:
                 edges.append((layer, a, b))
     loops = []
+    open_chains = []
     used = [False] * len(edges)
     for i in range(len(edges)):
         if used[i]:
@@ -106,7 +108,9 @@ def _stitch_loops(segments, tol=0.5):
             pts = [p for _, p in chain[:-1]]
             edge_layers = [l for l, _ in chain[1:]] + [chain[0][0]]
             loops.append((layer, pts, edge_layers))
-    return loops
+        elif len(chain) >= 2:
+            open_chains.append((layer, [p for _, p in chain]))
+    return loops, open_chains
 
 
 def _polygons_with_holes(loops, scale):
@@ -218,8 +222,39 @@ def parse_dxf_bytes(data: bytes, name_hint: str | None = None):
     for e in msp:
         visit(e)
 
-    loops.extend(_stitch_loops(segments))
+    stitched, open_chains = _stitch_loops(segments)
+    loops.extend(stitched)
     polys = _polygons_with_holes(loops, scale)
+
+    # Los trazos abiertos (p.ej. letras de identificacion dibujadas con
+    # lineas y splines sueltos) se adjuntan como lineas a la pieza que los
+    # contiene, para que vuelvan en el resultado y en el DXF exportado.
+    strokes = []
+    for layer, chain in open_chains:
+        segments_in_chain = []
+        for a, b in zip(chain[:-1], chain[1:]):
+            if _pt_dist(a, b) > 0.05:
+                segments_in_chain.append((
+                    layer, (a[0] * scale, a[1] * scale),
+                    (b[0] * scale, b[1] * scale)))
+        if segments_in_chain:
+            strokes.append(segments_in_chain)
+
+    assigned = [[] for _ in polys]
+    for stroke_group in strokes:
+        xs = [p[1][0] for p in stroke_group] + [p[2][0] for p in stroke_group]
+        ys = [p[1][1] for p in stroke_group] + [p[2][1] for p in stroke_group]
+        midpoint = sg.Point(sum(xs) / len(xs), sum(ys) / len(ys))
+        target = None
+        for index, (_layer, poly, _lines) in enumerate(polys):
+            if poly.contains(midpoint):
+                target = index
+                break
+        if target is None and polys:
+            target = max(range(len(polys)),
+                         key=lambda i: polys[i][1].area)
+        if target is not None:
+            assigned[target].extend(stroke_group)
 
     layers_colors = {
         layer_entry.dxf.name.strip(): layer_entry.dxf.color
@@ -229,9 +264,10 @@ def parse_dxf_bytes(data: bytes, name_hint: str | None = None):
     pieces = []
     counts = {}
     total_area = 0.0
-    for layer, poly, piece_lines in polys:
+    for index, (layer, poly, piece_lines) in enumerate(polys):
         counts[layer or "0"] = counts.get(layer or "0", 0) + 1
         minx, miny, maxx, maxy = poly.bounds
+        all_lines = piece_lines + assigned[index]
         pieces.append({
             "name": f"{layer or 'Pieza'} {counts[layer or '0']}",
             "width": round(maxx - minx, 3),
@@ -248,7 +284,7 @@ def parse_dxf_bytes(data: bytes, name_hint: str | None = None):
             "lines": [
                 [line_layer, round(x1 - minx, 3), round(y1 - miny, 3),
                  round(x2 - minx, 3), round(y2 - miny, 3)]
-                for line_layer, (x1, y1), (x2, y2) in piece_lines
+                for line_layer, (x1, y1), (x2, y2) in all_lines
             ],
         })
         total_area += poly.area
