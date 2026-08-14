@@ -121,12 +121,7 @@ function itemLine(template, polygon, holes) {
 }
 
 function defaultPieces() {
-  return [
-    { name: "Mesa", width: 800, height: 1200, quantity: 1 },
-    { name: "Mesita", width: 500, height: 500, quantity: 2 },
-    { name: "Mesada", width: 900, height: 600, quantity: 1 },
-    { name: "Repisa", width: 300, height: 1500, quantity: 3 },
-  ];
+  return [];
 }
 
 function defaultSlabs() {
