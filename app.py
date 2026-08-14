@@ -1,5 +1,6 @@
 from pathlib import Path
 import io
+import sys
 import threading
 import time
 import uuid
@@ -14,7 +15,14 @@ from core.models import ExportRequest, JobIn, OptimizeRequest
 from core.packing import optimize, optimize_polygons, validate_result
 from core.storage import get_job, init_db, list_jobs, save_job
 
-STATIC_DIR = Path(__file__).parent / "static"
+
+def _resource_path(name):
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", ".")) / name
+    return Path(__file__).resolve().parent / name
+
+
+STATIC_DIR = _resource_path("static")
 
 app = FastAPI(title="La Puntual Marmolería",
               description="Optimización de corte de mármol en planchas")

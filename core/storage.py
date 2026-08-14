@@ -3,13 +3,20 @@
 import json
 import os
 import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 
+def _project_base():
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
 DB_PATH = Path(os.getenv(
     "CORTE_DB_PATH",
-    Path(__file__).resolve().parent.parent / "data" / "corte_marmol.sqlite3",
+    _project_base() / "data" / "corte_marmol.sqlite3",
 ))
 
 
