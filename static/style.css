@@ -31,6 +31,8 @@ header {
 .license-badge.ok { background: #2f6f3f; color: #eafff0; }
 .license-badge.trial { background: #8a6d1d; color: #fff7dd; }
 
+.license-open { margin-left: 10px; margin-top: 0; padding: 5px 10px; font-size: 12px; }
+
 .license-overlay {
   position: fixed;
   inset: 0;
@@ -40,6 +42,8 @@ header {
   align-items: center;
   justify-content: center;
 }
+
+.license-overlay[hidden] { display: none; }
 
 .license-card {
   background: #fff;

@@ -149,6 +149,7 @@ function collectRows(container) {
 async function checkLicense() {
   const overlay = document.getElementById("licenseOverlay");
   const badge = document.getElementById("licenseBadge");
+  const openBtn = document.getElementById("licenseOpenBtn");
   try {
     const res = await fetch("/api/license/status");
     if (!res.ok) return;
@@ -158,20 +159,35 @@ async function checkLicense() {
       badge.hidden = false;
       badge.textContent = `Licencia: ${estado.licensed_to}`;
       badge.className = "license-badge ok";
+      openBtn.hidden = true;
     } else if (estado.status === "trial") {
       overlay.hidden = true;
       badge.hidden = false;
       badge.textContent = `Prueba: ${estado.days_left} día(s) restante(s)`;
       badge.className = "license-badge trial";
+      openBtn.hidden = false;
     } else {
-      overlay.hidden = false;
       badge.hidden = true;
-      document.getElementById("licenseMessage").textContent =
-        estado.reason || "El período de prueba terminó.";
+      openBtn.hidden = true;
+      showLicenseModal(
+        "Licencia vencida",
+        estado.reason || "El período de prueba terminó. Ingresá tu clave de activación para seguir usando la aplicación.",
+        false
+      );
     }
   } catch (_) {
     // Si no responde el estado, se deja pasar (modo local).
   }
+}
+
+function showLicenseModal(title, message, cancellable) {
+  document.getElementById("licenseTitle").textContent = title;
+  document.getElementById("licenseMessage").textContent = message;
+  document.getElementById("licenseError").hidden = true;
+  document.getElementById("licenseKey").value = "";
+  document.getElementById("licenseCancelBtn").hidden = !cancellable;
+  document.getElementById("licenseOverlay").hidden = false;
+  document.getElementById("licenseKey").focus();
 }
 
 async function activateLicense() {
@@ -191,6 +207,7 @@ async function activateLicense() {
     const data = await res.json();
     if (data.ok) {
       error.hidden = true;
+      document.getElementById("licenseOverlay").hidden = true;
       checkLicense();
       alert(data.message);
     } else {
@@ -220,6 +237,16 @@ function init() {
   document.getElementById("licenseActivateBtn").addEventListener("click", activateLicense);
   document.getElementById("licenseKey").addEventListener("keydown", (event) => {
     if (event.key === "Enter") activateLicense();
+  });
+  document.getElementById("licenseOpenBtn").addEventListener("click", () => {
+    showLicenseModal(
+      "Activar licencia",
+      "Tu licencia de prueba sigue activa. Si ya tenés la clave, podés activar la licencia permanente ahora.",
+      true
+    );
+  });
+  document.getElementById("licenseCancelBtn").addEventListener("click", () => {
+    document.getElementById("licenseOverlay").hidden = true;
   });
   document.getElementById("units").addEventListener("change", (event) => {
     units = event.target.value;

@@ -9,23 +9,25 @@
 <body>
   <header>
     <div class="header-brand">
-      <img src="/static/logo.jpg" alt="La Puntual Marmolería" class="logo">
+      <img src="/static/logo.png" alt="La Puntual Marmolería" class="logo">
       <div>
         <h1>La Puntual Marmolería</h1>
         <p>Optimización de corte de mármol en planchas</p>
       </div>
       <span id="licenseBadge" class="license-badge" hidden></span>
+      <button id="licenseOpenBtn" class="btn secondary license-open" hidden>Activar licencia</button>
     </div>
   </header>
 
   <main>
     <div id="licenseOverlay" class="license-overlay" hidden>
       <div class="license-card">
-        <img src="/static/logo.jpg" alt="La Puntual Marmolería" class="logo">
-        <h2>Licencia vencida</h2>
+        <img src="/static/logo.png" alt="La Puntual Marmolería" class="logo">
+        <h2 id="licenseTitle">Licencia vencida</h2>
         <p id="licenseMessage">El período de prueba terminó. Ingresá tu clave de activación para seguir usando la aplicación.</p>
         <input id="licenseKey" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" autocomplete="off">
         <button id="licenseActivateBtn" class="btn primary">Activar licencia</button>
+        <button id="licenseCancelBtn" class="btn secondary" hidden>Cancelar</button>
         <div id="licenseError" class="dxf-info error" hidden></div>
       </div>
     </div>

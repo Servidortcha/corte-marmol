@@ -19,7 +19,7 @@ def build():
     pdf.add_page()
     pdf.set_fill_color(58, 64, 70)
     pdf.rect(0, 0, 210, 42, "F")
-    pdf.image("static/logo.jpg", x=14, y=8, w=26)
+    pdf.image("static/logo.png", x=14, y=8, w=26)
     pdf.set_font("Arial", "B", 20)
     pdf.set_text_color(244, 245, 246)
     pdf.set_xy(45, 12)
