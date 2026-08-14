@@ -134,7 +134,7 @@ def run_optimize(req: OptimizeRequest):
 async def dxf_parse(file: UploadFile):
     _require_licencia()
     data = await file.read()
-    return parse_dxf_bytes(data)
+    return parse_dxf_bytes(data, name_hint=file.filename)
 
 
 @app.post("/api/slab-parse")

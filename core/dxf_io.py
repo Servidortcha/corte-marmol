@@ -7,6 +7,7 @@ contencion y se aplican como huecos del contorno exterior.
 """
 
 import io
+from pathlib import Path
 
 import ezdxf
 import shapely.geometry as sg
@@ -149,7 +150,9 @@ def _polygons_with_holes(loops, scale):
     return out
 
 
-def parse_dxf_bytes(data: bytes):
+def parse_dxf_bytes(data: bytes, name_hint: str | None = None):
+    """Parsea un DXF. Si name_hint trae el nombre del archivo y hay una sola
+    pieza, esa pieza se nombra con el archivo (sin extension)."""
     import os
     import tempfile
 
@@ -251,6 +254,8 @@ def parse_dxf_bytes(data: bytes):
         total_area += poly.area
 
     pieces.sort(key=lambda p: p["area"], reverse=True)
+    if name_hint and len(pieces) == 1:
+        pieces[0]["name"] = Path(name_hint).stem or pieces[0]["name"]
     return {
         "pieces": pieces,
         "stats": {
