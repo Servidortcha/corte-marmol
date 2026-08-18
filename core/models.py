@@ -27,6 +27,8 @@ class SlabIn(BaseModel):
         0, ge=0, description="Prioridad de uso: 1 se usa primero, 0 = normal")
     holes: list[list[list[float]]] | None = Field(
         None, description="Obstaculos internos de la chapa como contornos cerrados")
+    polygon: list[list[float]] | None = Field(
+        None, description="Contorno real de la chapa (retazos irregulares)")
 
 
 class OptimizeRequest(BaseModel):
@@ -64,6 +66,7 @@ class SlabOut(BaseModel):
     utilization: float = 0.0
     pieces: list[PieceOut]
     holes: list[list[list[float]]] | None = None
+    polygon: list[list[float]] | None = None
 
 
 class ExportRequest(BaseModel):

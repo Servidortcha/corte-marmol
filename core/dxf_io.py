@@ -350,9 +350,17 @@ def export_result_dxf(slabs_used, kerf=0.0, layer_colors=None):
     offset_x = 0.0
     for slab_index, slab in enumerate(slabs_used, start=1):
         w, h = slab["width"], slab["height"]
-        msp.add_lwpolyline([(offset_x, 0), (offset_x + w, 0),
-                            (offset_x + w, h), (offset_x, h)], close=True,
-                           dxfattribs={"layer": "PLANCHAS"})
+        outline = slab.get("polygon") or [
+            [0, 0], [w, 0], [w, h], [0, h],
+        ]
+        outline_pts = [(x + offset_x, y) for x, y in outline]
+        polyline = msp.add_lwpolyline(
+            outline_pts, close=True,
+            dxfattribs={"layer": "PLANCHAS"})
+        try:
+            polyline.dxf.const_width = 8
+        except Exception:
+            pass
         msp.add_text(
             f"PLANCHA {slab_index}: {slab.get('name', 'Plancha')}",
             dxfattribs={"layer": "ETIQUETAS", "height": 40},

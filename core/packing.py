@@ -39,6 +39,7 @@ class BinResult:
     unplaced_after: int = 0
     holes: list = field(default_factory=list)
     priority: int = 0
+    polygon: list | None = None
 
 
 def _layout_metrics(geometries, kerf=0.0):
@@ -366,6 +367,7 @@ def _try_strategy(strategy):
                 utilization=used / area, unplaced_after=len(pool),
                 holes=b.get("holes") or [],
                 priority=b.get("priority", 0),
+                polygon=b.get("polygon"),
             ))
     used_slabs_area = sum(b.width * b.height for b in results)
     placed_count = sum(len(b.pieces) for b in results)
@@ -409,6 +411,7 @@ def _try_polygon_strategy(strategy):
                     "waste_area": max(0.0, area - used),
                     "utilization": used / area,
                     "priority": b.get("priority", 0),
+                "polygon": b.get("polygon"),
                 })
             continue
         if placement_mode == "guillotine":
@@ -424,6 +427,7 @@ def _try_polygon_strategy(strategy):
                     "waste_area": max(0.0, area - used),
                     "utilization": used / area,
                     "priority": b.get("priority", 0),
+                "polygon": b.get("polygon"),
                 })
             continue
         placed_infos = []
@@ -475,6 +479,7 @@ def _try_polygon_strategy(strategy):
                 "pieces": placed_infos, "used_area": used,
                 "waste_area": max(0.0, area - used), "utilization": used / area,
                 "priority": b.get("priority", 0),
+                "polygon": b.get("polygon"),
             })
         pool = remaining
     used_slabs_area = sum(r["width"] * r["height"] for r in results)
@@ -738,7 +743,8 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
             holes = s.get("holes") or []
             bins.append({"name": s["name"], "w": s["width"], "h": s["height"],
                          "holes": holes,
-                         "priority": int(s.get("priority", 0))})
+                         "priority": int(s.get("priority", 0)),
+                         "polygon": s.get("polygon")})
 
     if not items:
         return {
@@ -844,6 +850,7 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
             "width": b.width,
             "height": b.height,
             "holes": b.holes if hasattr(b, "holes") else None,
+            "polygon": b.polygon,
             "used_area": round(b.used_area, 4),
             "waste_area": round(b.waste_area, 4),
             "utilization": round(b.utilization * 100, 2),
@@ -1195,7 +1202,8 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
         for _ in range(int(s.get("quantity", 1))):
             bins.append({"name": s["name"], "w": s["width"], "h": s["height"],
                          "holes": s.get("holes") or [],
-                         "priority": int(s.get("priority", 0))})
+                         "priority": int(s.get("priority", 0)),
+                         "polygon": s.get("polygon")})
     bins.sort(key=lambda b: b["w"] * b["h"], reverse=True)
     if any(b.get("priority", 0) > 0 for b in bins):
         bin_orders = [sorted(bins, key=lambda b: (
@@ -1298,6 +1306,7 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             "width": b["width"],
             "height": b["height"],
             "holes": b.get("holes") or [],
+            "polygon": b.get("polygon"),
             "used_area": round(b["used_area"], 4),
             "waste_area": round(b["waste_area"], 4),
             "utilization": round(b["utilization"] * 100, 2),

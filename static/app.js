@@ -139,6 +139,9 @@ function itemLine(template, polygon, holes, isSlab = false) {
   if (template.lines) {
     line.dataset.lines = JSON.stringify(template.lines);
   }
+  if (template.slabPolygon) {
+    line.dataset.slabPolygon = JSON.stringify(template.slabPolygon);
+  }
   line.querySelector(".del").addEventListener("click", () => line.remove());
   line.querySelector(".dup").addEventListener("click", () => {
     const parent = line.parentElement;
@@ -180,6 +183,7 @@ function collectRows(container) {
     }
     if (line.dataset.obstacles) row.holes = JSON.parse(line.dataset.obstacles);
     if (line.dataset.lines) row.lines = JSON.parse(line.dataset.lines);
+    if (line.dataset.slabPolygon) row.polygon = JSON.parse(line.dataset.slabPolygon);
     return row;
   });
 }
@@ -438,6 +442,7 @@ async function addPlanchaRow(name, polygon, holes) {
     height: slab.height,
     quantity: 1,
     obstacles: slab.holes,
+    slabPolygon: slab.polygon,
   }, undefined, undefined, true));
   renumberPriorities();
   return slab;
@@ -569,6 +574,7 @@ async function loadSlabDxf(event) {
         height: slab.height,
         quantity: 1,
         obstacles: slab.holes,
+        slabPolygon: slab.polygon,
       }, undefined, undefined, true));
       ok += 1;
     } catch (err) {
@@ -782,6 +788,16 @@ function renderResults(data) {
     const flip = document.createElementNS(ns, "g");
     flip.setAttribute("transform", `scale(1 -1) translate(0 -${slab.height})`);
     viewGroup.appendChild(flip);
+
+    if (slab.polygon && slab.polygon.length >= 3) {
+      const outlinePath = document.createElementNS(ns, "path");
+      outlinePath.setAttribute("d", ringPath(slab.polygon));
+      outlinePath.setAttribute("fill", "#d9dde2");
+      outlinePath.setAttribute("fill-opacity", 0.6);
+      outlinePath.setAttribute("stroke", "#5a6470");
+      outlinePath.setAttribute("stroke-width", 5);
+      flip.appendChild(outlinePath);
+    }
 
     slab.pieces.forEach((p) => {
       const fill = colorFor(p.name);

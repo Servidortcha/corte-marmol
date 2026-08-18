@@ -184,6 +184,10 @@ def _plancha_json(name, polygon, holes):
         "height": round(maxy - miny, 3),
         "holes": normalized,
         "hole_count": len(normalized),
+        "polygon": [
+            [round(x - minx, 3), round(y - miny, 3)]
+            for x, y in poly.exterior.coords[:-1]
+        ],
     }
 
 
