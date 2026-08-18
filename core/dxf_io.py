@@ -283,6 +283,17 @@ def parse_dxf_bytes(data: bytes, name_hint: str | None = None):
         counts[layer or "0"] = counts.get(layer or "0", 0) + 1
         minx, miny, maxx, maxy = poly.bounds
         all_lines = piece_lines + assigned[index]
+        # Descartar segmentos que quedaron fuera de la pieza: el cosido de
+        # contornos puede unir bordes de piezas vecinas y dejar lineas basura
+        # a miles de mm de distancia.
+        tol = max(5.0, (maxx - minx) * 0.02, (maxy - miny) * 0.02)
+        all_lines = [
+            segment for segment in all_lines
+            if (minx - tol <= segment[1][0] <= maxx + tol and
+                minx - tol <= segment[2][0] <= maxx + tol and
+                miny - tol <= segment[1][1] <= maxy + tol and
+                miny - tol <= segment[2][1] <= maxy + tol)
+        ]
         pieces.append({
             "name": f"{layer or 'Pieza'} {counts[layer or '0']}",
             "width": round(maxx - minx, 3),
