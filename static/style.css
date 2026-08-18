@@ -407,6 +407,19 @@ input, select {
   font-size: 13px;
 }
 
+.unused-slabs {
+  margin-top: 14px;
+  padding: 12px;
+  background: #f4f4f4;
+  border: 1px dashed #b8bdc4;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+.unused-slabs h3 { margin: 0 0 8px; font-size: 14px; color: #666; }
+.unused-slabs .unused-slab { margin-bottom: 4px; }
+
 .scraps h3 { margin: 0 0 8px; font-size: 14px; }
 
 #unplaced {

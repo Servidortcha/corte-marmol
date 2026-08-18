@@ -289,8 +289,10 @@ function init() {
 
   document.getElementById("addPiece").addEventListener("click", () =>
     pieceRows.appendChild(itemLine({ name: "Pieza", width: 500, height: 500, quantity: 1 })));
-  document.getElementById("addSlab").addEventListener("click", () =>
-    slabRows.appendChild(itemLine({ name: "Plancha", width: 3000, height: 1500, quantity: 1 }, undefined, undefined, true)));
+  document.getElementById("addSlab").addEventListener("click", () => {
+    slabRows.appendChild(itemLine({ name: "Plancha", width: 3000, height: 1500, quantity: 1 }, undefined, undefined, true));
+    renumberPriorities();
+  });
 
   document.getElementById("optimizeBtn").addEventListener("click", optimize);
   document.getElementById("exportBtn").addEventListener("click", exportDxf);
@@ -437,6 +439,7 @@ async function addPlanchaRow(name, polygon, holes) {
     quantity: 1,
     obstacles: slab.holes,
   }, undefined, undefined, true));
+  renumberPriorities();
   return slab;
 }
 
@@ -573,6 +576,7 @@ async function loadSlabDxf(event) {
     }
   }
   event.target.value = "";
+  renumberPriorities();
   let message = `${ok} chapa(s) agregada(s).`;
   if (errors.length) message += " Errores: " + errors.join(" | ");
   status.className = errors.length && !ok ? "dxf-info error" : "dxf-info ok";
@@ -919,6 +923,22 @@ function renderResults(data) {
   const scraps = document.getElementById("scraps");
   scraps.innerHTML = "";
   const allPlacedTotalArea = data.placed_area || 0;
+
+  const unusedEl = document.getElementById("unusedSlabs");
+  const usedKeys = new Set(data.slabs_used.map(
+    (s) => `${s.name}|${s.width}x${s.height}`));
+  const unused = collectRows(document.getElementById("slabRows"))
+    .filter((s) => !usedKeys.has(`${s.name}|${s.width}x${s.height}`));
+  if (unused.length) {
+    unusedEl.hidden = false;
+    unusedEl.innerHTML =
+      "<h3>Planchas sin usar:</h3>" +
+      unused.map((s) =>
+        `<div class="unused-slab">${escapeHtml(s.name)} (${fmtUnit(s.width)} \u00d7 ${fmtUnit(s.height)}) — las piezas entraron en otra plancha</div>`
+      ).join("");
+  } else {
+    unusedEl.hidden = true;
+  }
 
   data.slabs_used.forEach((slab, idx) => {
     const scrapArea = slab.waste_area || 0;
