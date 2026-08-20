@@ -607,6 +607,7 @@ async function optimize() {
   statusEl.hidden = false;
   statusEl.textContent = "Enviando cálculo...";
   const startedAt = Date.now();
+  const totalPieces = pieces.reduce((sum, p) => sum + (p.quantity || 1), 0);
 
   try {
     const res = await fetch("/api/optimize-async", {
@@ -629,8 +630,11 @@ async function optimize() {
     while (true) {
       await new Promise((resolve) => setTimeout(resolve, 3000));
       const seconds = Math.round((Date.now() - startedAt) / 1000);
+      const note = totalPieces > 60
+        ? " Hay muchas piezas; la b\u00fasqueda se redujo autom\u00e1ticamente para que termine antes."
+        : "";
       statusEl.textContent =
-        `Calculando el mejor agrupamiento... ${seconds}s. Piezas grandes pueden tardar varios minutos.`;
+        `Calculando el mejor agrupamiento de ${totalPieces} piezas... ${seconds}s. Puede tardar varios minutos.${note}`;
       const statusRes = await fetch(`/api/optimize-async/${job_id}`);
       if (!statusRes.ok) throw new Error(await statusRes.text());
       const job = await statusRes.json();

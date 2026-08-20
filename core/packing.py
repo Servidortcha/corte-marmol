@@ -388,7 +388,7 @@ def _try_strategy(strategy):
 
 
 def _try_polygon_strategy(strategy):
-    placement_mode, rotation, items_sorted, bins_sorted, kerf = strategy
+    placement_mode, rotation, items_sorted, bins_sorted, kerf, light = strategy
     pool = list(items_sorted)
     results = []
     for b in bins_sorted:
@@ -496,7 +496,7 @@ def _try_polygon_strategy(strategy):
         terms = _compactness_terms(geometries, r["width"] * r["height"], kerf)
         compact_terms = [current + value
                          for current, value in zip(compact_terms, terms)]
-    if not _polygon_infos_valid(results):
+    if not light and not _polygon_infos_valid(results):
         return ((-1, float("-inf"), float("-inf"), float("-inf"),
                  float("-inf"), float("-inf"), float("-inf"), float("-inf"),
                  float("-inf")),
@@ -754,6 +754,20 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
             "total_waste": 0.0, "global_utilization": 0.0, "kerf": kerf,
         }
 
+    item_count = len(items)
+    if item_count > 40:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            0, ["maxrects"], 0, 5)
+    elif item_count > 20:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            3, ["maxrects", "bottomleft"], 2, 8)
+    elif intensive:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            80, ["maxrects", "guillotine", "bottomleft", "compact"], 6, 12)
+    else:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            15, ["maxrects", "guillotine", "bottomleft", "compact"], 6, 12)
+
     def sorters(items):
         strategies = [
             sorted(items, key=lambda i: i["w"] * i["h"], reverse=True),
@@ -773,7 +787,7 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
                 i.get("priority", 0), -(i["w"] * i["h"]))),
         ]
         rng = random.Random(20260812)
-        shuffle_count = 80 if intensive else 15
+        strategies = strategies[:sorter_limit]
         for _ in range(shuffle_count):
             shuffled = list(items)
             rng.shuffle(shuffled)
@@ -781,7 +795,6 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
         return strategies
 
     rotation_modes = [allow_rotation, False] if allow_rotation else [False]
-    placement_modes = ["maxrects", "guillotine", "bottomleft", "compact"]
     if any(b.get("priority", 0) > 0 for b in bins):
         bin_orders = [sorted(bins, key=lambda b: (
             1 if b.get("priority", 0) <= 0 else 0,
@@ -822,7 +835,8 @@ def optimize(pieces, slabs, kerf=0.0, allow_rotation=True, intensive=False):
         blocked = [sg.Polygon(hole).buffer(kerf / 2, join_style=2)
                    for hole in result.holes or []]
         result.pieces = _recompact_rectangles(
-            result.pieces, result.width, result.height, kerf, blocked)
+            result.pieces, result.width, result.height, kerf, blocked,
+            rounds=compact_rounds)
         result.used_area = sum(p.width * p.height for p in result.pieces)
         area = result.width * result.height
         result.utilization = result.used_area / area
@@ -1229,6 +1243,21 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             "global_utilization": 0.0, "kerf": kerf,
         }
 
+    item_count = len(items)
+    if item_count > 40:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            0, ["maxrects"], 0, 5)
+    elif item_count > 20:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            3, ["maxrects", "bottomleft"], 2, 8)
+    elif intensive:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            60, ["maxrects", "guillotine", "bottomleft", "compact"], 5, 12)
+    else:
+        shuffle_count, placement_modes, compact_rounds, sorter_limit = (
+            10, ["maxrects", "guillotine", "bottomleft", "compact"], 5, 12)
+    light = item_count > 20
+
     def sorters(items):
         strategies = [
             sorted(items, key=lambda i: i["area"], reverse=True),
@@ -1250,7 +1279,7 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
                 i.get("priority", 0), -i["area"])),
         ]
         rng = random.Random(20260812)
-        shuffle_count = 60 if intensive else 10
+        strategies = strategies[:sorter_limit]
         for _ in range(shuffle_count):
             shuffled = list(items)
             rng.shuffle(shuffled)
@@ -1258,7 +1287,6 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
         return strategies
 
     rotation_modes = [allow_rotation, False] if allow_rotation else [False]
-    placement_modes = ["maxrects", "guillotine", "bottomleft", "compact"]
 
     all_strategies = []
     for rotation in rotation_modes:
@@ -1266,7 +1294,7 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             for items_sorted in sorters(items):
                 for bins_sorted in bin_orders:
                     all_strategies.append((placement_mode, rotation, items_sorted,
-                                           bins_sorted, kerf))
+                                           bins_sorted, kerf, light))
 
     best = None
     with ThreadPoolExecutor(max_workers=min(4, len(all_strategies))) as executor:
@@ -1288,7 +1316,8 @@ def optimize_polygons(polygon_pieces, slabs, kerf=0.0, allow_rotation=True,
             prepare(obstacle)
             blocked.append(obstacle)
         result["pieces"] = _recompact_polygon_infos(
-            result["pieces"], result["width"], result["height"], kerf, blocked)
+            result["pieces"], result["width"], result["height"], kerf, blocked,
+            rounds=compact_rounds)
         result["used_area"] = sum(info[5] for info in result["pieces"])
         area = result["width"] * result["height"]
         result["utilization"] = result["used_area"] / area
