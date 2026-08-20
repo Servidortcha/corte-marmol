@@ -1,7 +1,7 @@
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 3, 0, 0),
-    prodvers=(1, 3, 0, 0),
+    filevers=(1, 4, 0, 0),
+    prodvers=(1, 4, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,11 +16,11 @@ VSVersionInfo(
         [
           StringStruct(u'CompanyName', u'Aresa'),
           StringStruct(u'FileDescription', u'Aresa-Nest: optimizacion de corte de marmol en planchas'),
-          StringStruct(u'FileVersion', u'1.3.0'),
+          StringStruct(u'FileVersion', u'1.4.0'),
           StringStruct(u'InternalName', u'AresaNest'),
           StringStruct(u'OriginalFilename', u'Aresa-Nest.exe'),
           StringStruct(u'ProductName', u'Aresa-Nest'),
-          StringStruct(u'ProductVersion', u'1.3.0')
+          StringStruct(u'ProductVersion', u'1.4.0')
         ]
       )
     ]),

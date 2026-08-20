@@ -146,19 +146,7 @@ main {
 .nav-buttons .next-btn { width: auto; margin-top: 0; }
 .nav-buttons .btn { margin-top: 0; }
 
-.dibujo-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
 
-.dibujo-header label { display: flex; align-items: center; gap: 8px; }
-.dibujo-medidas { font-weight: 600; color: #2c5aa0; }
-
-.dibujo-wrap { border: 1px solid #c8cdd3; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
 #dibujoCanvas { display: block; cursor: crosshair; background: #fff; }
 
 #dibujoPts .dibujo-labels,
