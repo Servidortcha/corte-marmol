@@ -170,7 +170,16 @@ def plancha_parse(req: PlanchaIn):
 def _plancha_json(name, polygon, holes):
     import shapely.geometry as sg
 
-    poly = sg.Polygon(polygon, holes)
+    try:
+        poly = sg.Polygon(polygon, holes)
+        poly = poly if poly.is_valid else poly.buffer(0)
+        if poly.geom_type == "MultiPolygon":
+            parts = sorted(poly.geoms, key=lambda g: g.area, reverse=True)
+            poly = parts[0] if parts else poly
+        if poly.geom_type != "Polygon" or poly.area <= 0:
+            return {"error": "La forma dibujada no es un polígono válido."}
+    except Exception:
+        return {"error": "La forma dibujada no es un polígono válido."}
     minx, miny, maxx, maxy = poly.bounds
     all_holes = _slab_holes_from_polygon(poly)
     normalized = [

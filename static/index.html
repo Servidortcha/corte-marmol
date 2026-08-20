@@ -104,6 +104,25 @@
       <input type="file" id="slabDxfFile" accept=".dxf" multiple>
       <div id="slabDxfInfo" class="dxf-info" hidden></div>
 
+      <h3>Dibujar plancha (retazo)</h3>
+      <p class="step-hint">Hacé clic en el lienzo para marcar las esquinas del retazo, o escribí las medidas exactas en la tabla de puntos.</p>
+      <div class="dibujo-header">
+        <label><span>Ancho de referencia (mm)</span>
+          <input type="number" id="dibujoRef" value="3000" min="100">
+        </label>
+        <span id="dibujoMedidas" class="dibujo-medidas"></span>
+      </div>
+      <div class="dibujo-wrap">
+        <svg id="dibujoCanvas" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div id="dibujoPts"></div>
+      <div class="btn-row">
+        <button id="dibujoUndo" class="btn secondary">Deshacer punto</button>
+        <button id="dibujoClear" class="btn secondary">Limpiar</button>
+        <button id="dibujoUsar" class="btn primary">Agregar plancha con esta forma</button>
+      </div>
+      <div id="dibujoError" class="dxf-info error" hidden></div>
+
       <h3>Parámetros</h3>
       <label class="row">
         <span>Ancho de hoja de sierra (mm)</span>
